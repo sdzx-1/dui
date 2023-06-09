@@ -68,7 +68,7 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.18.0.0
+    build-depends:    base >=4.16.0.0
                     , containers >= 0.6
 
     -- Directories containing source files.
@@ -92,7 +92,7 @@ executable runsp
 
     -- Other library packages from which modules are imported.
     build-depends:
-        base ^>=4.18.0.0,
+        base >=4.16.0.0,
         runsp
 
     -- Directories containing source files.
@@ -125,5 +125,5 @@ test-suite runsp-test
 
     -- Test dependencies.
     build-depends:
-        base ^>=4.18.0.0,
+        base >=4.16.0.0,
         runsp
