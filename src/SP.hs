@@ -37,6 +37,13 @@ data ChanState = ChanState
     waitingList :: Seq SomeSP
   }
 
+initChanState :: ChanState
+initChanState =
+  ChanState
+    { chan = Seq.empty,
+      waitingList = Seq.empty
+    }
+
 readChan :: SomeSP -> ChanState -> (ChanState, Maybe SomeVal)
 readChan ssp cs@ChanState {..} = case chan of
   Empty -> (cs {waitingList = waitingList :|> ssp}, Nothing)
@@ -85,6 +92,7 @@ run es@EvalState {..} = case runningList of
               sps :|> sssp :|> SomeSP (SPWrapper io sp')
           es' = es {chans = IntMap.insert o cs' chans, runningList = sps'}
        in run es'
+
 --------------------------------------------------------------------
 
 es1 =
@@ -109,6 +117,14 @@ fsp = Get $ \x -> Put (x + 1) fsp
 
 fsum :: Int -> SP Int Int
 fsum i = Get $ \x -> Put (i + x) (fsum (i + x))
+
+arrSP :: (a -> b) -> SP a b
+arrSP f = Get $ \x -> Put (f x) (arrSP f)
+
+arrSPState :: s -> (s -> a -> (b, s)) -> SP a b
+arrSPState s f = Get $ \a ->
+  let (b, s') = f s a
+   in Put b (arrSPState s' f)
 
 -- >>> rs1
 -- [fromList [(0,[0,1,2]),(1,[1000]),(2,[]),(3,[])],fromList [(0,[]),(1,[]),(2,[]),(3,[1001,1003,1006,1010])]]
