@@ -32,6 +32,7 @@ ge1 = snd $ genES [1, 1, 1, 1] f1
 
 -- >>> re1
 -- fromList [(0,[]),(1,[]),(2,[]),(3,[1,2,3,4])]
+re1 :: IntMap.IntMap [Int]
 re1 = hf $ SP.run ge1
 
 -----------------------
