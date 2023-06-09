@@ -118,6 +118,12 @@ fsp = Get $ \x -> Put (x + 1) fsp
 fsum :: Int -> SP Int Int
 fsum i = Get $ \x -> Put (i + x) (fsum (i + x))
 
+filterSP :: (a -> Bool) -> SP a a
+filterSP p = Get $ \x ->
+  if p x
+    then Put x (filterSP p)
+    else filterSP p
+
 arrSP :: (a -> b) -> SP a b
 arrSP f = Get $ \x -> Put (f x) (arrSP f)
 

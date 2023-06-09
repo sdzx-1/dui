@@ -20,7 +20,11 @@ f1 :: LSP Int Int
 f1 =
   arrLSP (+ 0)
     :>>> arrLSPState 0 (\s a -> (s + a, s + a))
+    :>>> filterLSP odd
     :>>> arrLSPState 0 (\s a -> (s + a, s))
+
+filterLSP :: (a -> Bool) -> LSP a a
+filterLSP p = E (filterSP p)
 
 arrLSP :: (a -> b) -> LSP a b
 arrLSP f = E (arrSP f)
@@ -28,10 +32,10 @@ arrLSP f = E (arrSP f)
 arrLSPState :: s -> (s -> a -> (b, s)) -> LSP a b
 arrLSPState s f = E (arrSPState s f)
 
-ge1 = snd $ genES [1, 1, 1, 1] f1
+ge1 = snd $ genES [1, 1, 1, 1, 1, 1, 1, 1] f1
 
 -- >>> re1
--- fromList [(0,[]),(1,[]),(2,[]),(3,[1,2,3,4])]
+-- fromList [(0,[]),(1,[]),(2,[]),(3,[]),(4,[1,3,5,7])]
 re1 :: IntMap.IntMap [Int]
 re1 = hf $ SP.run ge1
 
