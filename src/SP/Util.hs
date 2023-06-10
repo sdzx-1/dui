@@ -36,9 +36,9 @@ filterSP p = Get $ \x ->
 arrSP :: (a -> b) -> SP a b
 arrSP f = Get $ \x -> Put (f x) (arrSP f)
 
-arrSPState :: s -> (s -> a -> (b, s)) -> SP a b
+arrSPState :: s -> (s -> a -> (s, b)) -> SP a b
 arrSPState s f = Get $ \a ->
-  let (b, s') = f s a
+  let (s', b) = f s a
    in Put b (arrSPState s' f)
 
 hf :: EvalState -> IntMap.IntMap [v]
