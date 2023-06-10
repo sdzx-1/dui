@@ -58,9 +58,12 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  MyLib
-                    , SP
+    exposed-modules:  SP
                     , SP1
+                    , SP.Eval
+                    , SP.Type
+                    , SP.Util
+                    , SP.Gen
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -71,6 +74,9 @@ library
     -- Other library packages from which modules are imported.
     build-depends:    base >=4.16.0.0
                     , containers >= 0.6
+                    , fused-effects
+                    , optics
+                    , fused-effects-optics
 
     -- Directories containing source files.
     hs-source-dirs:   src
