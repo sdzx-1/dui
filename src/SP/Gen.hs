@@ -1,5 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -11,9 +12,13 @@ import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (State, runState)
 import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Optics (assign)
+import qualified Data.IntMap as IntMap
+import GHC.Exts (IsList (toList))
 import Optics (At (at), (%))
+import SP.Eval
 import SP.Type
 import SP.Util
+import Unsafe.Coerce (unsafeCoerce)
 
 genES' :: (Has (State EvalState :+: Fresh) sig m, MonadFail m) => Int -> LSP i o -> m Int
 genES' i (E sp) = do
@@ -45,3 +50,16 @@ genES ls lsp =
   runM $
     runState @EvalState (initEvalState ls) $
       runFresh 1 (genES' 0 lsp)
+
+genESMaybe :: [i] -> LSP i o -> Maybe (EvalState, (Int, Int))
+genESMaybe ls lsp =
+  runM $
+    runState @EvalState (initEvalState ls) $
+      runFresh 1 (genES' 0 lsp)
+
+runLSP :: [i] -> LSP i o -> Maybe [o]
+runLSP ls lsp = do
+  (a, (_, i)) <- genESMaybe ls lsp
+  EvalState {..} <- runMaybe a
+  ChanState {..} <- IntMap.lookup i chans
+  pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList chan))

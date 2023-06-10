@@ -46,8 +46,8 @@ arrSPState s f = Get $ \a ->
   let (s', b) = f s a
    in Put b (arrSPState s' f)
 
-hf :: EvalState -> IntMap.IntMap [v]
-hf (EvalState chans _) =
+allChansValues :: EvalState -> IntMap.IntMap [v]
+allChansValues (EvalState chans _) =
   IntMap.map
     ( \(ChanState chan _) -> chan2v chan
     )

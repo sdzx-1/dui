@@ -1,4 +1,8 @@
 module Main (main) where
 
+import Test.SP.Eval
+import Test.QuickCheck (quickCheck)
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented."
+main = do 
+    quickCheck prop_TestEnv

@@ -1,5 +1,4 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
@@ -8,14 +7,7 @@ module SP.Eval where
 import Control.Algebra (Has)
 import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (runState)
-import Control.Effect.Optics
-import Control.Effect.Optics.Indexed
 import Control.Effect.State (State)
-import Data.Functor.Identity (Identity)
-import Data.IntMap (IntMap)
-import Data.Sequence (Seq (Empty, (:<|), (:|>)), (><))
-import qualified Data.Sequence as Seq
-import Optics (At (at), Ixed (ix), (%))
 import SP.Type
 import SP.Util
 import Unsafe.Coerce (unsafeCoerce)
@@ -80,3 +72,6 @@ eval = do
 -- run :: EvalState -> IO (EvalState, ())
 run :: MonadFail m => EvalState -> m EvalState
 run es = fst <$> runM (runState @EvalState es eval)
+
+runMaybe :: EvalState -> Maybe EvalState
+runMaybe es = fst <$> runM (runState @EvalState es eval)

@@ -62,7 +62,6 @@ library
                     , SP.Type
                     , SP.Util
                     , SP.Gen
-                    , SP.Example
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -115,7 +114,7 @@ test-suite runsp-test
     default-language: Haskell2010
 
     -- Modules included in this executable, other than Main.
-    -- other-modules:
+    other-modules: Test.SP.Eval
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -132,4 +131,6 @@ test-suite runsp-test
     -- Test dependencies.
     build-depends:
         base >=4.16.0.0,
+        containers,
+        QuickCheck,
         runsp
