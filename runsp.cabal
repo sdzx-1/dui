@@ -133,4 +133,5 @@ test-suite runsp-test
         base >=4.16.0.0,
         containers,
         QuickCheck,
+        hspec,
         runsp
