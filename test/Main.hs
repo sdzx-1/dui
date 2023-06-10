@@ -11,3 +11,5 @@ main = hspec $ do
       property $ \x -> prop_TestEnv x
     it "test :+++ " $ do
       property $ \x -> prop_fun1 x
+    it "test filterLSP " $ do
+      property $ \x ls-> prop_fun2 x ls
