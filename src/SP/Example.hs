@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
 
-module SP.SP1 where
+module SP.Example where
 
 import qualified Data.IntMap as IntMap
 import Data.Sequence

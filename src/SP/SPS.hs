@@ -1,8 +1,8 @@
 {-# LANGUAGE GADTs #-}
 
-module SPS where
+module SP.SPS where
 
-import SP
+import SP.Type
 
 data SPS i o where
   SPL :: SP i o -> SPS i o

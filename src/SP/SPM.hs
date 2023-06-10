@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module SPM where
+module SP.SPM where
 
 data SP i o m a
   = Get (i -> SP i o m a)

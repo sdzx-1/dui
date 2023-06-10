@@ -58,12 +58,11 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  SP
-                    , SP1
-                    , SP.Eval
+    exposed-modules:  SP.Eval
                     , SP.Type
                     , SP.Util
                     , SP.Gen
+                    , SP.Example
 
     -- Modules included in this library but not exported.
     -- other-modules:
