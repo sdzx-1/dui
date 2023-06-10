@@ -8,6 +8,7 @@ import qualified Data.IntMap as IntMap
 import Data.Sequence
 import qualified Data.Sequence as Seq
 import SP.Eval
+import SP.Gen
 import SP.Type
 import SP.Util
 
@@ -15,57 +16,26 @@ import SP.Util
 f1 :: LSP Int Int
 f1 =
   arrLSP (+ 0)
-    :>>> arrLSPState 0 (\s a -> (s + a, a))
     :>>> arrLSPState 0 (\s a -> (s + a, s + a))
-    :>>> filterLSP even
-    :>>> arrLSPState 0 (\s a -> (s + a, a))
+    :>>> arrLSP genV
+    :>>> (arrLSP (* (-1)) ||| arrLSP id)
+    :>>> arrLSP id
 
-filterLSP :: (a -> Bool) -> LSP a a
-filterLSP p = E (filterSP p)
+genV :: (Int -> Either Int Int)
+genV i = if even i then Left i else Right i
 
-arrLSP :: (a -> b) -> LSP a b
-arrLSP f = E (arrSP f)
+reV :: Either Int Int -> Int
+reV (Left _) = 0
+reV (Right i) = i
 
-arrLSPState :: s -> (s -> a -> (s, b)) -> LSP a b
-arrLSPState s f = E (arrSPState s f)
-
-ge1 = snd $ genES (Prelude.replicate 10 1) f1
+ge1 :: MonadFail m => m EvalState
+ge1 = do
+  (a, _) <- genES (Prelude.replicate 10 1) f1
+  run a
 
 -- >>> re1
--- fromList [(0,[]),(1,[]),(2,[]),(3,[]),(4,[]),(5,[2,4,6,8,10])]
+-- fromList [(0,[]),(1,[]),(2,[]),(3,[]),(4,[]),(5,[]),(6,[]),(7,[]),(8,[]),(9,[]),(10,[1,-2,3,-4,5,-6,7,-8,9,-10])]
 re1 :: IO (IntMap.IntMap [Int])
-re1 = hf <$> run ge1
+re1 = hf <$> ge1
 
 -----------------------
-
-genES' :: Int -> LSP i o -> EvalState -> (Int, EvalState)
-genES' i (E sp) es@EvalState {..} =
-  let i' = i + 1
-      ssp = SomeSP $ SPWrapper (i, i') sp
-      es' =
-        es
-          { chans = IntMap.insert i' initChanState chans,
-            runningList = runningList :|> ssp
-          }
-   in (i', es')
-genES' i (lsp :>>> lsps) es =
-  let (i', es') = genES' i lsp es
-   in genES' i' lsps es'
-
-genES :: [i] -> LSP i o -> (Int, EvalState)
-genES ls lsp =
-  genES'
-    0
-    lsp
-    EvalState
-      { chans =
-          IntMap.fromList
-            [ ( 0,
-                ChanState
-                  { chan = Seq.fromList (map SomeVal ls),
-                    waitingList = Seq.empty
-                  }
-              )
-            ],
-        runningList = Seq.empty
-      }

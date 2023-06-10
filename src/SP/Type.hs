@@ -51,5 +51,7 @@ makeFieldLabels ''EvalState
 data LSP i o where
   E :: SP i o -> LSP i o
   (:>>>) :: LSP i o -> LSP o p -> LSP i p
+  (:+++) :: LSP i1 o1 -> LSP i2 o2 -> LSP (Either i1 i2) (Either o1 o2)
+  -- (:|||) :: LSP i1 o -> LSP i2 o -> LSP o p -> LSP (Either i1 i2) p
 
 infixr 4 :>>>

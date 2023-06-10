@@ -63,6 +63,21 @@ initChanState =
       waitingList = Seq.empty
     }
 
+initEvalState :: [i] -> EvalState
+initEvalState ls =
+  EvalState
+    { chans =
+        IntMap.fromList
+          [ ( 0,
+              ChanState
+                { chan = Seq.fromList (map SomeVal ls),
+                  waitingList = Seq.empty
+                }
+            )
+          ],
+      runningList = Seq.empty
+    }
+
 takeOne :: Seq a -> (Maybe a, Seq a)
 takeOne Empty = (Nothing, Empty)
 takeOne (v :<| res) = (Just v, res)
@@ -94,3 +109,19 @@ writeVal sval o = do
   let (cs', msp) = writeChan sval cs
   assign @EvalState (#chans % ix o) cs'
   pure msp
+
+filterLSP :: (a -> Bool) -> LSP a a
+filterLSP p = E (filterSP p)
+
+arrLSP :: (a -> b) -> LSP a b
+arrLSP f = E (arrSP f)
+
+arrLSPState :: s -> (s -> a -> (s, b)) -> LSP a b
+arrLSPState s f = E (arrSPState s f)
+
+(|||) :: LSP i1 o -> LSP i2 o -> LSP (Either i1 i2) o
+l ||| r = (l :+++ r) :>>> arrLSP bothC
+
+bothC :: Either a a -> a
+bothC (Left a) = a
+bothC (Right a) = a

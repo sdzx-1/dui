@@ -16,8 +16,8 @@ data LSP i o where
   (:>>>) :: LSP i o -> LSP o p -> LSP i p
   ----------------------------------------------------
   (:+++) :: LSP i1 o1 -> LSP i2 o2 -> LSP (Either o1 o2) o -> LSP (Either i1 i2) o
-  (:|||) :: LSP i1 o -> LSP i2 o -> LSP o p -> LSP (Either i1 i2) p
 
+-- (:|||) :: LSP i1 o -> LSP i2 o -> LSP o p -> LSP (Either i1 i2) p
 ----------------------------------------------------
 -- (:***) :: LSP i1 o1 -> LSP i2 o2 -> LSP (o1, o2) o -> LSP (i1, i2) o
 -- (:&&&) :: LSP i o1 -> LSP i o2 -> LSP (o1, o2) o -> LSP i o
