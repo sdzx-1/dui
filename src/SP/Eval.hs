@@ -22,45 +22,6 @@ import Unsafe.Coerce (unsafeCoerce)
 
 --------------------------------------------------------------------
 
-initChanState :: ChanState
-initChanState =
-  ChanState
-    { chan = Seq.empty,
-      waitingList = Seq.empty
-    }
-
-takeOne :: Seq a -> (Maybe a, Seq a)
-takeOne Empty = (Nothing, Empty)
-takeOne (v :<| res) = (Just v, res)
-
-takeOneSomeSP ::
-  (Has (State EvalState) sig m, MonadFail m) => m (Maybe SomeSP)
-takeOneSomeSP = do
-  runs <- use @EvalState #runningList
-  let (v, n) = takeOne runs
-  assign @EvalState #runningList n
-  pure v
-
-runningAdd ::
-  (Has (State EvalState) sig m, MonadFail m) => [SomeSP] -> m ()
-runningAdd somesps = modifying @_ @EvalState #runningList (>< Seq.fromList somesps)
-
-readVal ::
-  (Has (State EvalState) sig m, MonadFail m) => SomeSP -> Int -> m (Maybe SomeVal)
-readVal ssp i = do
-  Just cs <- preuse @EvalState (#chans % ix i)
-  let (cs', mv) = readChan ssp cs
-  assign @EvalState (#chans % ix i) cs'
-  pure mv
-
-writeVal ::
-  (Has (State EvalState) sig m, MonadFail m) => SomeVal -> Int -> m (Maybe SomeSP)
-writeVal sval o = do
-  Just cs <- preuse @EvalState (#chans % ix o)
-  let (cs', msp) = writeChan sval cs
-  assign @EvalState (#chans % ix o) cs'
-  pure msp
-
 eval :: (Has (State EvalState) sig m, MonadFail m) => m ()
 eval = do
   mval <- takeOneSomeSP
