@@ -29,7 +29,10 @@ data SPWrapper i o = SPWrapper
 
 data SomeVal = forall a. SomeVal a
 
-data SomeSP = forall i o. SomeSP (SPWrapper i o)
+data SomeSP
+  = forall i o. SomeSP (SPWrapper i o)
+  | EitherUp Int (Int, Int)
+  | EitherDown (Int, Int) Int
 
 --------------------------------------------------------------------
 data ChanState = ChanState
@@ -71,27 +74,41 @@ data EvalState = EvalState
 run :: EvalState -> EvalState
 run es@EvalState {..} = case runningList of
   Empty -> es
-  (ssp@(SomeSP (SPWrapper io@(i, o) sp)) :<| sps) -> case sp of
-    Get f ->
-      let cs = fromJust $ IntMap.lookup i chans
-          (cs', mv) = readChan ssp cs
-          sps' = case mv of
-            Just (SomeVal val) ->
-              let ssp' = SomeSP $ SPWrapper io $ f (unsafeCoerce val)
-               in sps :|> ssp'
-            Nothing -> sps
-          es' = es {chans = IntMap.insert i cs' chans, runningList = sps'}
-       in run es'
-    Put v sp' ->
-      let cs = fromJust $ IntMap.lookup o chans
-          (cs', msp) = writeChan (SomeVal v) cs
-          sps' = case msp of
-            Nothing ->
-              sps :|> SomeSP (SPWrapper io sp')
-            Just sssp ->
-              sps :|> sssp :|> SomeSP (SPWrapper io sp')
-          es' = es {chans = IntMap.insert o cs' chans, runningList = sps'}
-       in run es'
+  sfun :<| sps -> case sfun of
+    eup@(EitherUp i (o1, o2)) ->
+      let ics = fromJust $ IntMap.lookup i chans
+          o1cs = fromJust $ IntMap.lookup o1 chans
+          o2cs = fromJust $ IntMap.lookup o2 chans
+          -------------------
+          (ics', mv) = readChan eup ics
+          bbbb = case mv of
+            Nothing -> undefined
+            Just (SomeVal a) -> case unsafeCoerce a of
+              Left lval -> undefined
+              Right rval -> undefined
+       in undefined
+    EitherDown (o1, o2) k -> undefined
+    ssp@(SomeSP (SPWrapper io@(i, o) sp)) -> case sp of
+      Get f ->
+        let cs = fromJust $ IntMap.lookup i chans
+            (cs', mv) = readChan ssp cs
+            sps' = case mv of
+              Just (SomeVal val) ->
+                let ssp' = SomeSP $ SPWrapper io $ f (unsafeCoerce val)
+                 in sps :|> ssp'
+              Nothing -> sps
+            es' = es {chans = IntMap.insert i cs' chans, runningList = sps'}
+         in run es'
+      Put v sp' ->
+        let cs = fromJust $ IntMap.lookup o chans
+            (cs', msp) = writeChan (SomeVal v) cs
+            sps' = case msp of
+              Nothing ->
+                sps :|> SomeSP (SPWrapper io sp')
+              Just sssp ->
+                sps :|> sssp :|> SomeSP (SPWrapper io sp')
+            es' = es {chans = IntMap.insert o cs' chans, runningList = sps'}
+         in run es'
 
 --------------------------------------------------------------------
 
