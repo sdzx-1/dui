@@ -21,6 +21,17 @@ eval = do
     Nothing -> pure ()
     Just sfun -> do
       case sfun of
+        ------------------------------------------------------------------------
+        BothUp i (o1, o2) -> do
+          mv <- readVal sfun i
+          case mv of
+            Nothing -> pure ()
+            Just someVal' -> do
+              v1 <- writeVal someVal' o1
+              undefined
+        ------------------------------------------------------------------------
+        BothDown si oi ti -> undefined
+        ------------------------------------------------------------------------
         EitherUp i (el, er) -> do
           mv <- readVal sfun i
           case mv of
@@ -29,29 +40,23 @@ eval = do
               let (eindex, someVal') = case unsafeCoerce val of
                     Left leftVal -> (el, SomeVal leftVal)
                     Right rightVal -> (er, SomeVal rightVal)
-              msp <- writeVal someVal' eindex
-              case msp of
-                Nothing -> runningAdd [sfun]
-                Just nsp -> runningAdd [nsp, sfun]
+              writeVal someVal' eindex
+              runningAdd sfun
         ------------------------------------------------------------------------
         EitherDownLeft i o -> do
           mv <- readVal sfun i
           case mv of
             Nothing -> pure ()
             Just (SomeVal val) -> do
-              msp <- writeVal (SomeVal (Left val)) o
-              case msp of
-                Nothing -> runningAdd [sfun]
-                Just nsp -> runningAdd [nsp, sfun]
+              writeVal (SomeVal (Left val)) o
+              runningAdd sfun
         EitherDownRight i o -> do
           mv <- readVal sfun i
           case mv of
             Nothing -> pure ()
             Just (SomeVal val) -> do
-              msp <- writeVal (SomeVal (Right val)) o
-              case msp of
-                Nothing -> runningAdd [sfun]
-                Just nsp -> runningAdd [nsp, sfun]
+              writeVal (SomeVal (Right val)) o
+              runningAdd sfun
         ------------------------------------------------------------------------
         SomeSP (SPWrapper io@(i, o) sp) -> case sp of
           Get f -> do
@@ -60,13 +65,11 @@ eval = do
               Nothing -> pure ()
               Just (SomeVal val) -> do
                 let ssp' = SomeSP $ SPWrapper io $ f (unsafeCoerce val)
-                runningAdd [ssp']
+                runningAdd ssp'
           Put v sp' -> do
-            msp <- writeVal (SomeVal v) o
+            writeVal (SomeVal v) o
             let sp'' = SomeSP (SPWrapper io sp')
-            case msp of
-              Nothing -> runningAdd [sp'']
-              Just ksp -> runningAdd [ksp, sp'']
+            runningAdd sp''
       eval
 
 -- run :: EvalState -> IO (EvalState, ())

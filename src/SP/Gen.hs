@@ -24,7 +24,7 @@ genES' :: (Has (State EvalState :+: Fresh) sig m, MonadFail m) => Int -> LSP i o
 genES' i (E sp) = do
   i' <- fresh
   assign @EvalState (#chans % at i') (Just initChanState)
-  runningAdd [SomeSP $ SPWrapper (i, i') sp]
+  mapM_ runningAdd [SomeSP $ SPWrapper (i, i') sp]
   pure i'
 genES' i (lsp :>>> lsps) = do
   i' <- genES' i lsp
@@ -34,14 +34,14 @@ genES' i ((:+++) lsp rsp) = do
   ro <- fresh
   assign @EvalState (#chans % at lo) (Just initChanState)
   assign @EvalState (#chans % at ro) (Just initChanState)
-  runningAdd [EitherUp i (lo, ro)]
+  mapM_ runningAdd [EitherUp i (lo, ro)]
 
   lo' <- genES' lo lsp
   ro' <- genES' ro rsp
 
   ko <- fresh
   assign @EvalState (#chans % at ko) (Just initChanState)
-  runningAdd [EitherDownLeft lo' ko, EitherDownRight ro' ko]
+  mapM_ runningAdd [EitherDownLeft lo' ko, EitherDownRight ro' ko]
 
   pure ko
 

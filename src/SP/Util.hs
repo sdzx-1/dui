@@ -15,6 +15,7 @@ import GHC.Exts (IsList (toList))
 import Optics (Ixed (ix), (%))
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)
+import Control.Monad (forM_)
 
 readChan :: SomeSP -> ChanState -> (ChanState, Maybe SomeVal)
 readChan ssp cs@ChanState {..} = case chan of
@@ -91,8 +92,8 @@ takeOneSomeSP = do
   pure v
 
 runningAdd ::
-  (Has (State EvalState) sig m, MonadFail m) => [SomeSP] -> m ()
-runningAdd somesps = modifying @_ @EvalState #runningList (>< Seq.fromList somesps)
+  (Has (State EvalState) sig m, MonadFail m) => SomeSP -> m ()
+runningAdd ssp = modifying @_ @EvalState #runningList (:|> ssp)
 
 readVal ::
   (Has (State EvalState) sig m, MonadFail m) => SomeSP -> Int -> m (Maybe SomeVal)
@@ -103,12 +104,12 @@ readVal ssp i = do
   pure mv
 
 writeVal ::
-  (Has (State EvalState) sig m, MonadFail m) => SomeVal -> Int -> m (Maybe SomeSP)
+  (Has (State EvalState) sig m, MonadFail m) => SomeVal -> Int -> m ()
 writeVal sval o = do
   Just cs <- preuse @EvalState (#chans % ix o)
   let (cs', msp) = writeChan sval cs
   assign @EvalState (#chans % ix o) cs'
-  pure msp
+  forM_ msp runningAdd
 
 filterLSP :: (a -> Bool) -> LSP a a
 filterLSP p = E (filterSP p)

@@ -1,18 +1,18 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoFieldSelectors #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module SP.Type where
 
 import Data.IntMap (IntMap)
 import Data.Sequence (Seq)
-import Optics (makeFieldLabels)
 import GHC.Generics (Generic)
+import Optics (makeFieldLabels)
 
 data SP i o
   = Get (i -> SP i o)
@@ -29,7 +29,13 @@ data SomeSP
   = forall i o. SomeSP (SPWrapper i o)
   | EitherUp Int (Int, Int)
   | EitherDownLeft Int Int
-  | EitherDownRight Int  Int
+  | EitherDownRight Int Int
+  | BothUp Int (Int, Int)
+  | BothDown
+      { soureIndex :: Int,
+        otherIndex :: Int,
+        targeIndex :: Int
+      }
 
 data ChanState = ChanState
   { chan :: Seq SomeVal,
@@ -52,6 +58,6 @@ data LSP i o where
   E :: SP i o -> LSP i o
   (:>>>) :: LSP i o -> LSP o p -> LSP i p
   (:+++) :: LSP i1 o1 -> LSP i2 o2 -> LSP (Either i1 i2) (Either o1 o2)
-  -- (:|||) :: LSP i1 o -> LSP i2 o -> LSP o p -> LSP (Either i1 i2) p
+  (:***) :: LSP i1 o1 -> LSP i2 o2 -> LSP (i1, i2) (o1, o2)
 
 infixr 4 :>>>
