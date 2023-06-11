@@ -31,7 +31,12 @@ data SomeSP
   | EitherDownLeft Int Int
   | EitherDownRight Int Int
   | BothUp Int (Int, Int)
-  | BothDown
+  | BothDownFst
+      { soureIndex :: Int,
+        otherIndex :: Int,
+        targeIndex :: Int
+      }
+  | BothDownSnd
       { soureIndex :: Int,
         otherIndex :: Int,
         targeIndex :: Int

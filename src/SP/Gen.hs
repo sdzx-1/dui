@@ -44,6 +44,21 @@ genES' i ((:+++) lsp rsp) = do
   mapM_ runningAdd [EitherDownLeft lo' ko, EitherDownRight ro' ko]
 
   pure ko
+genES' i (lsp :*** rsp) = do
+  fsto <- fresh
+  sndo <- fresh
+  assign @EvalState (#chans % at fsto) (Just initChanState)
+  assign @EvalState (#chans % at sndo) (Just initChanState)
+  mapM_ runningAdd [BothUp i (fsto, sndo)]
+
+  fsto' <- genES' fsto lsp
+  sndo' <- genES' sndo rsp
+
+  ko <- fresh
+  assign @EvalState (#chans % at ko) (Just initChanState)
+  mapM_ runningAdd [BothDownFst fsto' sndo' ko, BothDownSnd sndo' fsto' ko]
+
+  pure ko
 
 genES :: MonadFail m => [i] -> LSP i o -> m (EvalState, (Int, Int))
 genES ls lsp =

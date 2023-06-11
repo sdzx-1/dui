@@ -9,17 +9,21 @@ import Control.Algebra (Has)
 import Control.Carrier.State.Strict (State)
 import Control.Effect.Optics (assign, modifying, preuse, use)
 import qualified Data.IntMap as IntMap
-import Data.Sequence (Seq (..), (><))
+import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import GHC.Exts (IsList (toList))
 import Optics (Ixed (ix), (%))
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)
-import Control.Monad (forM_)
 
 readChan :: SomeSP -> ChanState -> (ChanState, Maybe SomeVal)
 readChan ssp cs@ChanState {..} = case chan of
   Empty -> (cs {waitingList = waitingList :|> ssp}, Nothing)
+  (v :<| vs) -> (cs {chan = vs}, Just v)
+
+readChan' :: ChanState -> (ChanState, Maybe SomeVal)
+readChan' cs@ChanState {..} = case chan of
+  Empty -> (cs, Nothing)
   (v :<| vs) -> (cs {chan = vs}, Just v)
 
 writeChan :: SomeVal -> ChanState -> (ChanState, Maybe SomeSP)
@@ -95,13 +99,32 @@ runningAdd ::
   (Has (State EvalState) sig m, MonadFail m) => SomeSP -> m ()
 runningAdd ssp = modifying @_ @EvalState #runningList (:|> ssp)
 
+getChanLength ::
+  (Has (State EvalState) sig m, MonadFail m) => Int -> m Int
+getChanLength i = do
+  Just vs <- preuse @EvalState (#chans % ix i % #chan)
+  pure $ Seq.length vs
+
+onlyReadVal ::
+  (Has (State EvalState) sig m, MonadFail m) => Int -> m SomeVal
+onlyReadVal i = do
+  Just cs <- preuse @EvalState (#chans % ix i)
+  let (cs', Just mv) = readChan' cs
+  assign @EvalState (#chans % ix i) cs'
+  pure mv
+
+attochSomeSP ::
+  (Has (State EvalState) sig m, MonadFail m) => SomeSP -> Int -> m ()
+attochSomeSP ssp i = do
+  modifying @_ @EvalState (#chans % ix i % #waitingList) (:|> ssp)
+
 readVal ::
-  (Has (State EvalState) sig m, MonadFail m) => SomeSP -> Int -> m (Maybe SomeVal)
-readVal ssp i = do
+  (Has (State EvalState) sig m, MonadFail m) => SomeSP -> Int -> (SomeVal -> m ()) -> m ()
+readVal ssp i handler = do
   Just cs <- preuse @EvalState (#chans % ix i)
   let (cs', mv) = readChan ssp cs
   assign @EvalState (#chans % ix i) cs'
-  pure mv
+  mapM_ handler mv
 
 writeVal ::
   (Has (State EvalState) sig m, MonadFail m) => SomeVal -> Int -> m ()
@@ -109,7 +132,7 @@ writeVal sval o = do
   Just cs <- preuse @EvalState (#chans % ix o)
   let (cs', msp) = writeChan sval cs
   assign @EvalState (#chans % ix o) cs'
-  forM_ msp runningAdd
+  mapM_ runningAdd msp
 
 filterLSP :: (a -> Bool) -> LSP a a
 filterLSP p = E (filterSP p)
@@ -122,6 +145,9 @@ arrLSPState s f = E (arrSPState s f)
 
 (|||) :: LSP i1 o -> LSP i2 o -> LSP (Either i1 i2) o
 l ||| r = (l :+++ r) :>>> arrLSP bothC
+
+(&&&) :: LSP i o1 -> LSP i o2 -> LSP i (o1, o2)
+f &&& s = arrLSP (\x -> (x, x)) :>>> (f :*** s)
 
 bothC :: Either a a -> a
 bothC (Left a) = a

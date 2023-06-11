@@ -23,49 +23,54 @@ eval = do
       case sfun of
         ------------------------------------------------------------------------
         BothUp i (o1, o2) -> do
-          mv <- readVal sfun i
-          case mv of
-            Nothing -> pure ()
-            Just someVal' -> do
-              v1 <- writeVal someVal' o1
-              undefined
+          readVal sfun i $ \(SomeVal val) -> do
+            let (va, vb) = unsafeCoerce val
+            writeVal (SomeVal va) o1
+            writeVal (SomeVal vb) o2
+            runningAdd sfun
         ------------------------------------------------------------------------
-        BothDown si oi ti -> undefined
+        BothDownFst si other ti -> do
+          len <- getChanLength other
+          if len < 1
+            then attochSomeSP sfun si
+            else do
+              readVal sfun si $ \(SomeVal vl) -> do
+                SomeVal vr <- onlyReadVal other
+                writeVal (SomeVal (vl, vr)) ti
+                runningAdd sfun
+        ------------------------------------------------------------------------
+        BothDownSnd si other ti -> do
+          len <- getChanLength other
+          if len < 1
+            then attochSomeSP sfun si
+            else do
+              readVal sfun si $ \(SomeVal vr) -> do
+                SomeVal vl <- onlyReadVal other
+                writeVal (SomeVal (vl, vr)) ti
+                runningAdd sfun
         ------------------------------------------------------------------------
         EitherUp i (el, er) -> do
-          mv <- readVal sfun i
-          case mv of
-            Nothing -> pure ()
-            Just (SomeVal val) -> do
-              let (eindex, someVal') = case unsafeCoerce val of
-                    Left leftVal -> (el, SomeVal leftVal)
-                    Right rightVal -> (er, SomeVal rightVal)
-              writeVal someVal' eindex
-              runningAdd sfun
+          readVal sfun i $ \(SomeVal val) -> do
+            let (eindex, someVal') = case unsafeCoerce val of
+                  Left leftVal -> (el, SomeVal leftVal)
+                  Right rightVal -> (er, SomeVal rightVal)
+            writeVal someVal' eindex
+            runningAdd sfun
         ------------------------------------------------------------------------
         EitherDownLeft i o -> do
-          mv <- readVal sfun i
-          case mv of
-            Nothing -> pure ()
-            Just (SomeVal val) -> do
-              writeVal (SomeVal (Left val)) o
-              runningAdd sfun
+          readVal sfun i $ \(SomeVal val) -> do
+            writeVal (SomeVal (Left val)) o
+            runningAdd sfun
         EitherDownRight i o -> do
-          mv <- readVal sfun i
-          case mv of
-            Nothing -> pure ()
-            Just (SomeVal val) -> do
-              writeVal (SomeVal (Right val)) o
-              runningAdd sfun
+          readVal sfun i $ \(SomeVal val) -> do
+            writeVal (SomeVal (Right val)) o
+            runningAdd sfun
         ------------------------------------------------------------------------
         SomeSP (SPWrapper io@(i, o) sp) -> case sp of
           Get f -> do
-            mv <- readVal sfun i
-            case mv of
-              Nothing -> pure ()
-              Just (SomeVal val) -> do
-                let ssp' = SomeSP $ SPWrapper io $ f (unsafeCoerce val)
-                runningAdd ssp'
+            readVal sfun i $ \(SomeVal val) -> do
+              let ssp' = SomeSP $ SPWrapper io $ f (unsafeCoerce val)
+              runningAdd ssp'
           Put v sp' -> do
             writeVal (SomeVal v) o
             let sp'' = SomeSP (SPWrapper io sp')
