@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -66,3 +67,10 @@ data LSP i o where
   (:***) :: LSP i1 o1 -> LSP i2 o2 -> LSP (i1, i2) (o1, o2)
 
 infixr 4 :>>>
+
+instance Show (LSP i o) where
+  show = \case
+    E _ -> "*"
+    (a :>>> b) -> show a ++ " -> " ++ show b
+    (a :+++ b) -> "(" ++ show a ++ " +++ " ++ show b ++ ")"
+    (a :*** b) -> "(" ++ show a ++ " *** " ++ show b ++ ")"
