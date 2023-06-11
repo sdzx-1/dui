@@ -72,5 +72,5 @@ instance Show (LSP i o) where
   show = \case
     E _ -> "*"
     (a :>>> b) -> show a ++ " -> " ++ show b
-    (a :+++ b) -> "(" ++ show a ++ " +++ " ++ show b ++ ")"
-    (a :*** b) -> "(" ++ show a ++ " *** " ++ show b ++ ")"
+    (a :+++ b) -> "((" ++ show a ++ ") +++ (" ++ show b ++ "))"
+    (a :*** b) -> "((" ++ show a ++ ") *** (" ++ show b ++ "))"
