@@ -53,3 +53,8 @@ fun2 = filterLSP
 
 prop_fun2 :: (Int -> Bool) -> [Int] -> Bool
 prop_fun2 f ls = runLSP ls (fun2 f) == Just (filter f ls)
+
+prop_fun3 :: (Int -> Bool) -> (Int -> Bool) -> [Int] -> Bool
+prop_fun3 fstf sndf ls =
+  runLSP ls (filterLSP fstf &&& filterLSP sndf)
+    == Just ( zip (filter fstf ls) (filter sndf ls))
