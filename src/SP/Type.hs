@@ -66,7 +66,9 @@ data LSP i o where
   (:+++) :: LSP i1 o1 -> LSP i2 o2 -> LSP (Either i1 i2) (Either o1 o2)
   (:***) :: LSP i1 o1 -> LSP i2 o2 -> LSP (i1, i2) (o1, o2)
 
-infixr 4 :>>>
+infixr 1 :>>>
+infixr 3 :***
+infixr 2 :+++
 
 instance Show (LSP i o) where
   show = \case

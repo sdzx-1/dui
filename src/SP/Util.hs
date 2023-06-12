@@ -143,6 +143,10 @@ arrLSP f = E (arrSP f)
 arrLSPState :: s -> (s -> a -> (s, b)) -> LSP a b
 arrLSPState s f = E (arrSPState s f)
 
+infixr 3 &&&
+
+infixr 2 |||
+
 (|||) :: LSP i1 o -> LSP i2 o -> LSP (Either i1 i2) o
 l ||| r = (l :+++ r) :>>> arrLSP bothC
 
