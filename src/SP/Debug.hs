@@ -94,11 +94,11 @@ ge i = if odd i then Left i else Right i
 
 -- >>> show lsp
 -- >>> res
--- "* -> * -> * -> * -> ((*) +++ (* -> * -> * -> ((*) +++ (*)) -> *)) -> * -> * -> ((* -> *) *** (*))"
--- Just [(2,3),(4,5),(6,7),(8,9),(10,11)]
+-- "* -> * -> * -> * -> ((*) +++ (* -> * -> * -> ((*) +++ (*)) -> *)) -> * -> * -> ((* -> *) *** (* -> ((*) *** (*)))) -> *"
+-- Just [2,4,6,8,10]
 res = runLSP [1 .. 10] lsp
 
--- >>> showLSP lsp
+-- >>> showLSP (lsp ||| lsp)
 lsp =
   arrLSP (+ 1)
     :>>> arrLSPState 0 (\s a -> (s + a, s + a))
@@ -111,4 +111,8 @@ lsp =
                      :>>> (arrLSP id ||| arrLSP id)
                  )
          )
-    :>>> ((filterLSP (< 0) :>>> arrLSP abs) &&& filterLSP (> 0))
+    :>>> ( (filterLSP (< 0) :>>> arrLSP abs)
+             &&& filterLSP (> 0)
+             &&& filterLSP (> 0)
+         )
+    :>>> arrLSP fst
