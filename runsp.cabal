@@ -62,6 +62,7 @@ library
                     , SP.Type
                     , SP.Util
                     , SP.Gen
+                    , SP.Debug
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -75,6 +76,8 @@ library
                     , fused-effects
                     , optics
                     , fused-effects-optics
+                    , algebraic-graphs
+                    , shelly
 
     -- Directories containing source files.
     hs-source-dirs:   src
