@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 
 module Test.SP.Eval where
 
@@ -58,4 +59,16 @@ prop_fun2 f ls = runLSP ls (fun2 f) == Just (filter f ls)
 prop_fun3 :: (Int -> Bool) -> (Int -> Bool) -> [Int] -> Bool
 prop_fun3 fstf sndf ls =
   runLSP ls (filterLSP fstf &&& filterLSP sndf)
-    == Just ( zip (filter fstf ls) (filter sndf ls))
+    == Just (zip (filter fstf ls) (filter sndf ls))
+
+fun3 f1 f2 f3 =
+  arrLSP f1
+    :>>> (idLSP :>>+ arrLSP f2 :>>> (idLSP :>>+ idLSP))
+    :>>> arrLSP f3
+
+prop_fun4 :: (Int -> Int) -> (Int -> Int) -> (Int -> Int) -> [Int] -> Bool
+prop_fun4 f1 f2 f3 ls =
+  let Just (a :> b :> Nil, c) = runLSPWithOutputs ls (fun3 f1 f2 f3)
+   in a == map f1 ls
+        && b == map (f2 . f1) ls
+        && c == map (f3 . f2 . f1) ls

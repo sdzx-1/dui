@@ -14,4 +14,6 @@ main = hspec $ do
     it "test filterLSP " $ do
       property $ \x ls-> prop_fun2 x ls
     it "test (&&&) " $ do
-      property $ \x ls-> prop_fun2 x ls
+      property $ \x ls-> prop_fun3 x ls
+    it "test (:>>+) " $ do
+      property $ \x ls-> prop_fun4 x ls
