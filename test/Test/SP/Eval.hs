@@ -61,9 +61,13 @@ prop_fun3 fstf sndf ls =
   runLSP ls (filterLSP fstf &&& filterLSP sndf)
     == Just (zip (filter fstf ls) (filter sndf ls))
 
+copyVal = idLSP :>>+ idLSP
+
 fun3 f1 f2 f3 =
   arrLSP f1
-    :>>> (idLSP :>>+ arrLSP f2 :>>> (idLSP :>>+ idLSP))
+    :>>> copyVal
+    :>>> arrLSP f2
+    :>>> copyVal
     :>>> arrLSP f3
 
 prop_fun4 :: (Int -> Int) -> (Int -> Int) -> (Int -> Int) -> [Int] -> Bool
