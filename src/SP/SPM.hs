@@ -1,44 +1,65 @@
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications #-}
 
 module SP.SPM where
 
-data SP i o m a
-  = Get (i -> SP i o m a)
-  | Put o (SP i o m a)
-  | Eff (m (SP i o m a))
+import Control.Algebra (Has)
+import Control.Carrier.State.Strict (State, runState)
+import Control.Effect.Labelled (HasLabelledLift, lift, runLabelledLift)
+import qualified Control.Effect.State as S
+import Control.Monad (forever, (<=<))
+
+data SP i o a
+  = Get (i -> SP i o a)
+  | Put o (SP i o a)
   | Return a
 
-instance (Functor m) => Functor (SP i o m) where
+instance Functor (SP i o) where
   fmap f (Get fun) = Get (fmap f . fun)
   fmap f (Put o sp) = Put o (fmap f sp)
-  fmap f (Eff msp) = Eff (fmap (fmap f) msp)
   fmap f (Return a) = Return (f a)
 
-instance (Functor m) => Applicative (SP i o m) where
-  pure a = Return a
+instance Applicative (SP i o) where
   (<*>) = undefined
+  pure = Return
 
-instance (Functor m) => Monad (SP i o m) where
-  (Get fun) >>= f = Get ((>>= f) . fun)
+instance Monad (SP i o) where
+  (Get fun) >>= f = Get (f <=< fun)
   (Put o sp) >>= f = Put o (sp >>= f)
-  (Eff msp) >>= f = Eff (fmap (>>= f) msp)
   (Return a) >>= f = f a
 
-get :: SP i o m i
 get = Get Return
 
-put :: o -> SP i o m ()
 put o = Put o (Return ())
 
-eff :: (Functor m) => m a -> SP i o m a
-eff ma = Eff (fmap Return ma)
+example ::
+  ( Has (State Int) sig m,
+    HasLabelledLift (SP Bool String) sig m
+  ) =>
+  m ()
+example = do
+  lift $ put "init"
+  lift $ put "loop start"
+  forever $ do
+    b <- lift get
+    S.modify @Int (+ 1)
+    i <- S.get @Int
+    lift (put (show (b, i)))
 
-t1 :: SP Int Bool IO ()
-t1 = do
-  input <- get
-  eff $ print input
-  put True
-  pure ()
-  eff $ do
-    print 1
-    print input
+runExample =
+  runLabelledLift $
+    runState @Int 0 example
+
+eval :: (Show o, Read i) => SP i o a -> IO ()
+eval (Return _) = pure ()
+eval (Get f) = do
+  putStrLn "get val"
+  st <- getLine
+  eval $ f (read st)
+eval (Put o sp) = do
+  putStrLn $ "output: " ++ show o
+  eval sp
