@@ -20,61 +20,65 @@ import SP.Type
 import SP.Util
 import Unsafe.Coerce (unsafeCoerce)
 
-genES' :: (Has (State EvalState :+: Fresh) sig m, MonadFail m) => Int -> LSP i o -> m Int
+genES' :: (Has (State EvalState :+: Fresh) sig m, MonadFail m) => Int -> LSP xs i o -> m ([Int], Int)
 genES' i (E sp) = do
   i' <- fresh
   assign @EvalState (#chans % at i') (Just initChanState)
   mapM_ runningAdd [SomeSP $ SPWrapper (i, i') sp]
-  pure i'
+  pure ([], i')
 genES' i (lsp :>>> lsps) = do
-  i' <- genES' i lsp
-  genES' i' lsps
+  (ots1, i') <- genES' i lsp
+  (ots2, i'') <- genES' i' lsps
+  pure (ots1 ++ ots2, i'')
 genES' i ((:+++) lsp rsp) = do
   lo <- fresh
   ro <- fresh
   assign @EvalState (#chans % at lo) (Just initChanState)
   assign @EvalState (#chans % at ro) (Just initChanState)
   mapM_ runningAdd [EitherUp i (lo, ro)]
-
-  lo' <- genES' lo lsp
-  ro' <- genES' ro rsp
-
+  (lots, lo') <- genES' lo lsp
+  (rots, ro') <- genES' ro rsp
   ko <- fresh
   assign @EvalState (#chans % at ko) (Just initChanState)
   mapM_ runningAdd [EitherDownLeft lo' ko, EitherDownRight ro' ko]
-
-  pure ko
+  pure (lots ++ rots, ko)
 genES' i (lsp :*** rsp) = do
   fsto <- fresh
   sndo <- fresh
   assign @EvalState (#chans % at fsto) (Just initChanState)
   assign @EvalState (#chans % at sndo) (Just initChanState)
   mapM_ runningAdd [BothUp i (fsto, sndo)]
-
-  fsto' <- genES' fsto lsp
-  sndo' <- genES' sndo rsp
-
+  (fots, fsto') <- genES' fsto lsp
+  (sots, sndo') <- genES' sndo rsp
   ko <- fresh
   assign @EvalState (#chans % at ko) (Just initChanState)
   mapM_ runningAdd [BothDownFst fsto' sndo' ko, BothDownSnd sndo' fsto' ko]
+  pure (fots ++ sots, ko)
+genES' i (lsp :>+ rsp) = do
+  fsto <- fresh
+  sndo <- fresh
+  assign @EvalState (#chans % at fsto) (Just initChanState)
+  assign @EvalState (#chans % at sndo) (Just initChanState)
+  mapM_ runningAdd [BothUp i (fsto, sndo)]
+  (fots, fsto') <- genES' fsto lsp
+  (sots, sndo') <- genES' sndo rsp
+  pure (fots ++ [fsto'] ++ sots, sndo')
 
-  pure ko
-
-genES :: MonadFail m => [i] -> LSP i o -> m (EvalState, (Int, Int))
+genES :: MonadFail m => [i] -> LSP xs i o -> m (EvalState, (Int, ([Int], Int)))
 genES ls lsp =
   runM $
     runState @EvalState (initEvalState ls) $
       runFresh 1 (genES' 0 lsp)
 
-genESMaybe :: [i] -> LSP i o -> Maybe (EvalState, (Int, Int))
+genESMaybe :: [i] -> LSP xs i o -> Maybe (EvalState, (Int, ([Int], Int)))
 genESMaybe ls lsp =
   runM $
     runState @EvalState (initEvalState ls) $
       runFresh 1 (genES' 0 lsp)
 
-runLSP :: [i] -> LSP i o -> Maybe [o]
+runLSP :: [i] -> LSP xs i o -> Maybe [o]
 runLSP ls lsp = do
-  (a, (_, i)) <- genESMaybe ls lsp
+  (a, (_, (_, i))) <- genESMaybe ls lsp
   EvalState {..} <- runMaybe a
   ChanState {..} <- IntMap.lookup i chans
   pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList chan))

@@ -1,7 +1,9 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module SP.Util where
 
@@ -134,23 +136,23 @@ writeVal sval o = do
   assign @EvalState (#chans % ix o) cs'
   mapM_ runningAdd msp
 
-filterLSP :: (a -> Bool) -> LSP a a
+filterLSP :: (a -> Bool) -> LSP '[] a a
 filterLSP p = E (filterSP p)
 
-arrLSP :: (a -> b) -> LSP a b
+arrLSP :: (a -> b) -> LSP '[] a b
 arrLSP f = E (arrSP f)
 
-arrLSPState :: s -> (s -> a -> (s, b)) -> LSP a b
+arrLSPState :: s -> (s -> a -> (s, b)) -> LSP '[] a b
 arrLSPState s f = E (arrSPState s f)
 
 infixr 3 &&&
 
 infixr 2 |||
 
-(|||) :: LSP i1 o -> LSP i2 o -> LSP (Either i1 i2) o
+(|||) :: LSP xs i1 o -> LSP ys i2 o -> LSP (xs :++: ys :++: '[]) (Either i1 i2) o
 l ||| r = (l :+++ r) :>>> arrLSP bothC
 
-(&&&) :: LSP i o1 -> LSP i o2 -> LSP i (o1, o2)
+(&&&) :: LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: ys) i (o1, o2)
 f &&& s = arrLSP (\x -> (x, x)) :>>> (f :*** s)
 
 bothC :: Either a a -> a

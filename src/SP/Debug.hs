@@ -31,7 +31,7 @@ addEdge (a, b) = modify @(Graph a) ((G.vertex a `G.connect` G.Vertex b) `G.overl
 genGraph' ::
   Has (Fresh :+: State (Graph Int)) sig m =>
   Int ->
-  LSP i o ->
+  LSP xs i o ->
   m Int
 genGraph' i = \case
   E _ -> do
@@ -63,6 +63,13 @@ genGraph' i = \case
     addEdge @Int (o1', ko)
     addEdge @Int (o2', ko)
     pure ko
+  a :>+ b -> do
+    o1 <- fresh
+    o2 <- fresh
+    addEdge @Int (i, o1)
+    addEdge @Int (i, o2)
+    genGraph' o1 a
+    genGraph' o2 b
 
 genGraph lsp =
   fst $
@@ -71,7 +78,7 @@ genGraph lsp =
         runFresh 1 $
           genGraph' 0 lsp
 
-renderLSP :: LSP i o -> String
+renderLSP :: LSP xs i o -> String
 renderLSP lsp =
   export
     defaultStyleViaShow
@@ -80,7 +87,7 @@ renderLSP lsp =
       }
     (genGraph lsp)
 
-showLSP :: LSP i o -> IO ()
+showLSP :: LSP xs i o -> IO ()
 showLSP lsp = do
   hSetBuffering stdout LineBuffering
   shelly $ verbosely $ do
@@ -99,20 +106,24 @@ ge i = if odd i then Left i else Right i
 res = runLSP [1 .. 10] lsp
 
 -- >>> showLSP (lsp ||| lsp)
+lsps = lsp ||| lsp
+
 lsp =
   arrLSP (+ 1)
-    :>>> arrLSPState 0 (\s a -> (s + a, s + a))
-    :>>> arrLSPState 0 (\s a -> (a, a - s))
-    :>>> arrLSP ge
-    :>>> ( arrLSP id
-             ||| ( arrLSP (* (-1))
-                     :>>> arrLSP id
-                     :>>> arrLSP ge
-                     :>>> (arrLSP id ||| arrLSP id)
-                 )
+    :>>> ( arrLSP show
+             :>+ arrLSPState 0 (\s a -> (s + a, s + a))
+             :>>> arrLSPState 0 (\s a -> (a, a - s))
+             :>>> arrLSP ge
+             :>>> ( arrLSP id
+                      ||| ( arrLSP (* (-1))
+                              :>>> arrLSP id
+                              :>>> arrLSP ge
+                              :>>> (arrLSP id ||| arrLSP id)
+                          )
+                  )
+             :>>> ( (filterLSP (< 0) :>>> arrLSP abs)
+                      &&& filterLSP (> 0)
+                      &&& filterLSP (> 0)
+                  )
+             :>>> (arrLSP id :>+ arrLSP fst)
          )
-    :>>> ( (filterLSP (< 0) :>>> arrLSP abs)
-             &&& filterLSP (> 0)
-             &&& filterLSP (> 0)
-         )
-    :>>> arrLSP fst

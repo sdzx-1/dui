@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DataKinds #-}
 
 module Test.SP.Eval where
 
@@ -22,7 +23,7 @@ instance Arbitrary TestEnv where
 dirEvalTestEnv :: TestEnv -> [Int]
 dirEvalTestEnv (TestEnv ls fs) = map (\x -> foldl' (&) x fs) ls
 
-creatFunLSP :: [a -> a] -> LSP a a
+creatFunLSP :: [a -> a] -> LSP '[] a a
 creatFunLSP = foldr ((:>>>) . arrLSP) (arrLSP id)
 
 lspEvalTestEnv :: TestEnv -> Maybe [Int]
@@ -39,7 +40,7 @@ instance Show (a -> b) where
 bra :: Int -> Either Int Int
 bra i = if odd i then Left i else Right i
 
-fun1 :: (Int -> Int) -> (Int -> Int) -> LSP Int Int
+fun1 :: (Int -> Int) -> (Int -> Int) -> LSP '[] Int Int
 fun1 f1 f2 = arrLSP bra :>>> (arrLSP f1 ||| arrLSP f2)
 
 prop_fun1 :: (Int -> Int) -> (Int -> Int) -> [Int] -> Bool
@@ -48,7 +49,7 @@ prop_fun1 f1 f2 ls =
     == Just (map (\x -> if odd x then f1 x else f2 x) ls)
 
 --------------------------
-fun2 :: (Int -> Bool) -> LSP Int Int
+fun2 :: (Int -> Bool) -> LSP '[] Int Int
 fun2 = filterLSP
 
 prop_fun2 :: (Int -> Bool) -> [Int] -> Bool

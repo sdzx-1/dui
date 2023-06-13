@@ -4,13 +4,17 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
 module SP.Type where
 
 import Data.IntMap (IntMap)
+import Data.Kind (Type)
 import Data.Sequence (Seq)
 import GHC.Generics (Generic)
 import Optics (makeFieldLabels)
@@ -60,19 +64,34 @@ data EvalState = EvalState
 makeFieldLabels ''ChanState
 makeFieldLabels ''EvalState
 
-data LSP i o where
-  E :: SP i o -> LSP i o
-  (:>>>) :: LSP i o -> LSP o p -> LSP i p
-  (:+++) :: LSP i1 o1 -> LSP i2 o2 -> LSP (Either i1 i2) (Either o1 o2)
-  (:***) :: LSP i1 o1 -> LSP i2 o2 -> LSP (i1, i2) (o1, o2)
+type family Reverse' (a :: [xs]) (b :: [xs]) :: [xs] where
+  Reverse' '[] ys = ys
+  Reverse' (x ': xs) ys = Reverse' xs (x ': ys)
+
+infixl 2 :++:
+
+type family (:++:) (a :: [xs]) (b :: [xs]) :: [xs] where
+  xs :++: ys = Reverse' (Reverse' xs '[]) ys
+
+data LSP (outputs :: [Type]) i o where
+  E :: SP i o -> LSP '[] i o
+  (:>>>) :: LSP xs i o -> LSP ys o p -> LSP (xs :++: ys) i p
+  (:+++) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (Either i1 i2) (Either o1 o2)
+  (:***) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (i1, i2) (o1, o2)
+  (:>+) :: LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: '[o1] :++: ys) i o2
 
 infixr 1 :>>>
+
 infixr 3 :***
+
+infixr 3 :>+
+
 infixr 2 :+++
 
-instance Show (LSP i o) where
+instance Show (LSP xs i o) where
   show = \case
     E _ -> "*"
     (a :>>> b) -> show a ++ " -> " ++ show b
     (a :+++ b) -> "((" ++ show a ++ ") +++ (" ++ show b ++ "))"
     (a :*** b) -> "((" ++ show a ++ ") *** (" ++ show b ++ "))"
+    (a :>+ b) -> "((" ++ show a ++ ") :>+ (" ++ show b ++ "))"
