@@ -153,6 +153,12 @@ filterLSP p = E (filterSP p)
 arrLSP :: (a -> b) -> LSP '[] a b
 arrLSP f = E (arrSP f)
 
+idSP :: SP o o
+idSP = Get $ \x -> Put x idSP
+
+idLSP :: forall o. LSP '[] o o
+idLSP = E idSP
+
 arrLSPState :: s -> (s -> a -> (s, b)) -> LSP '[] a b
 arrLSPState s f = E (arrSPState s f)
 
