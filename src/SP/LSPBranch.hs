@@ -4,6 +4,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
 
 module SP.LSPBranch where
 
@@ -82,7 +84,13 @@ pk2 = undefined
 pk3 :: LSP Int ('[Double] >+ Int)
 pk3 = undefined
 
-pkn1 = pk :>+ pk
+idSP :: SP o o
+idSP = Get $ \x -> Put x idSP
+
+idLSP :: forall o. LSP o o
+idLSP = E idSP
+
+pkn1 = idLSP :>+ (pk :>>> (idLSP @Bool :>+ idLSP))
 
 pkn2 =
   pk1
