@@ -14,9 +14,10 @@
 module SP.Type where
 
 import Data.IntMap (IntMap)
-import Data.Kind (Type)
+import Data.Kind (Constraint, Type)
 import Data.Sequence (Seq)
 import GHC.Generics (Generic)
+import GHC.OldList (intercalate)
 import Optics (makeFieldLabels)
 
 data SP i o
@@ -68,6 +69,17 @@ makeFieldLabels ''EvalState
 data HList (xs :: [Type]) where
   (:>) :: [x] -> HList xs -> HList (x ': xs)
   Nil :: HList '[]
+
+type family All (f :: Type -> Constraint) (v :: [Type]) :: Constraint where
+  All f '[] = ()
+  All f (x ': xs) = (f x, All f xs)
+
+toStringList :: All Show xs => HList xs -> [String]
+toStringList Nil = []
+toStringList (x :> xs) = show x : toStringList xs
+
+instance All Show xs => Show (HList xs) where
+  show xs = "{" ++ intercalate ", " (toStringList xs) ++ "}"
 
 infixr 1 :>
 
