@@ -9,15 +9,16 @@
 
 module SP.Util where
 
-import Control.Algebra (Has)
+import Control.Algebra (Has, (:+:))
 import Control.Carrier.State.Strict (State)
+import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Optics (assign, modifying, preuse, use)
 import qualified Data.IntMap as IntMap
 import Data.Kind (Type)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import GHC.Exts (IsList (toList))
-import Optics (Ixed (ix), (%))
+import Optics (At (at), Ixed (ix), (%))
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -91,6 +92,13 @@ initEvalState ls =
 takeOne :: Seq a -> (Maybe a, Seq a)
 takeOne Empty = (Nothing, Empty)
 takeOne (v :<| res) = (Just v, res)
+
+newCSIndex ::
+  (Has (State EvalState :+: Fresh) sig m) => m Int
+newCSIndex = do
+  i <- fresh
+  assign @EvalState (#chans % at i) (Just initChanState)
+  pure i
 
 takeOneSomeSP ::
   (Has (State EvalState) sig m, MonadFail m) => m (Maybe SomeSP)
