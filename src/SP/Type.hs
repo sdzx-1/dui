@@ -64,6 +64,12 @@ data EvalState = EvalState
 makeFieldLabels ''ChanState
 makeFieldLabels ''EvalState
 
+data HList (xs :: [Type]) where
+  (:>) :: x -> HList xs -> HList (x ': xs)
+  Nil :: HList '[]
+
+infixr 1 :>
+
 type family Reverse' (a :: [xs]) (b :: [xs]) :: [xs] where
   Reverse' '[] ys = ys
   Reverse' (x ': xs) ys = Reverse' xs (x ': ys)
