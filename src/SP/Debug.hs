@@ -101,29 +101,34 @@ ge i = if odd i then Left i else Right i
 
 -- >>> show lsp
 -- >>> res
--- "* -> * -> * -> * -> ((*) +++ (* -> * -> * -> ((*) +++ (*)) -> *)) -> * -> * -> ((* -> *) *** (* -> ((*) *** (*)))) -> *"
+-- "* -> ((*) :>+ (* -> * -> * -> ((*) +++ (* -> * -> * -> ((*) +++ (*)) -> *)) -> * -> * -> ((* -> ((*) :>+ (*))) *** (* -> ((*) *** (*)))) -> ((*) :>+ (*))))"
 -- Just [2,4,6,8,10]
 res = runLSP [1 .. 10] lsp
 
--- >>> showLSP (lsp ||| lsp)
-lsps = lsp ||| lsp
-
+-- >>> showLSP lsp
 lsp =
   arrLSP (+ 1)
     :>>> ( arrLSP show
-             :>>+ arrLSPState 0 (\s a -> (s + a, s + a))
-             :>>> arrLSPState 0 (\s a -> (a, a - s))
-             :>>> arrLSP ge
-             :>>> ( arrLSP id
-                      ||| ( arrLSP (* (-1))
-                              :>>> arrLSP id
-                              :>>> arrLSP ge
-                              :>>> (arrLSP id ||| arrLSP id)
-                          )
+             :>>+ ( arrLSPState 0 (\s a -> (s + a, s + a))
+                      :>>> arrLSPState 0 (\s a -> (a, a - s))
+                      :>>> arrLSP ge
+                      :>>> ( arrLSP id
+                               ||| ( arrLSP (* (-1))
+                                       :>>> arrLSP id
+                                       :>>> arrLSP ge
+                                       :>>> (arrLSP id ||| arrLSP id)
+                                   )
+                           )
+                      :>>> ( ( filterLSP (< 0)
+                                 :>>> ( arrLSP show
+                                          :>>+ arrLSP abs
+                                      )
+                             )
+                               &&& filterLSP (> 0)
+                               &&& filterLSP (> 0)
+                           )
+                      :>>> ( arrLSP show
+                               :>>+ arrLSP fst
+                           )
                   )
-             :>>> ( (filterLSP (< 0) :>>> arrLSP abs)
-                      &&& filterLSP (> 0)
-                      &&& filterLSP (> 0)
-                  )
-             :>>> (arrLSP id :>>+ arrLSP fst)
          )

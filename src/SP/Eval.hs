@@ -22,6 +22,12 @@ eval = do
     Just sfun -> do
       case sfun of
         ------------------------------------------------------------------------
+        BothCopy i (o1, o2) -> do
+          readVal sfun i $ \someVal -> do
+            writeVal someVal o1
+            writeVal someVal o2
+            runningAdd sfun
+        ------------------------------------------------------------------------
         BothUp i (o1, o2) -> do
           readVal sfun i $ \(SomeVal val) -> do
             let (va, vb) = unsafeCoerce val

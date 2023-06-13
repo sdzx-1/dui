@@ -36,6 +36,7 @@ data SomeSP
   | EitherDownLeft Int Int
   | EitherDownRight Int Int
   | BothUp Int (Int, Int)
+  | BothCopy Int (Int, Int)
   | BothDownFst
       { soureIndex :: Int,
         otherIndex :: Int,
@@ -65,7 +66,7 @@ makeFieldLabels ''ChanState
 makeFieldLabels ''EvalState
 
 data HList (xs :: [Type]) where
-  (:>) :: x -> HList xs -> HList (x ': xs)
+  (:>) :: [x] -> HList xs -> HList (x ': xs)
   Nil :: HList '[]
 
 infixr 1 :>

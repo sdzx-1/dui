@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -11,6 +13,7 @@ import Control.Algebra (Has)
 import Control.Carrier.State.Strict (State)
 import Control.Effect.Optics (assign, modifying, preuse, use)
 import qualified Data.IntMap as IntMap
+import Data.Kind (Type)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import GHC.Exts (IsList (toList))
@@ -158,3 +161,14 @@ f &&& s = arrLSP (\x -> (x, x)) :>>> (f :*** s)
 bothC :: Either a a -> a
 bothC (Left a) = a
 bothC (Right a) = a
+
+class SomeValsToHList (xs :: [Type]) where
+  someValsToHList :: [Seq SomeVal] -> HList xs
+
+instance SomeValsToHList '[] where
+  someValsToHList [] = Nil
+  someValsToHList _ = error "length error"
+
+instance (SomeValsToHList xs) => SomeValsToHList (x ': xs) where
+  someValsToHList (x : xs) = map (\(SomeVal a) -> unsafeCoerce a) (toList x) :> someValsToHList xs
+  someValsToHList [] = error "length error"

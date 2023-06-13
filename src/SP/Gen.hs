@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedLabels #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -12,9 +11,9 @@ import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (State, runState)
 import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Optics (assign)
-import qualified Data.IntMap as IntMap
+import Control.Monad (forM)
 import GHC.Exts (IsList (toList))
-import Optics (At (at), (%))
+import Optics (At (at), Ixed (ix), (%), (^?))
 import SP.Eval
 import SP.Type
 import SP.Util
@@ -59,7 +58,7 @@ genES' i (lsp :>>+ rsp) = do
   sndo <- fresh
   assign @EvalState (#chans % at fsto) (Just initChanState)
   assign @EvalState (#chans % at sndo) (Just initChanState)
-  mapM_ runningAdd [BothUp i (fsto, sndo)]
+  mapM_ runningAdd [BothCopy i (fsto, sndo)]
   (fots, fsto') <- genES' fsto lsp
   (sots, sndo') <- genES' sndo rsp
   pure (fots ++ [fsto'] ++ sots, sndo')
@@ -79,13 +78,19 @@ genESMaybe ls lsp =
 runLSP :: [i] -> LSP xs i o -> Maybe [o]
 runLSP ls lsp = do
   (a, (_, (_, i))) <- genESMaybe ls lsp
-  EvalState {..} <- runMaybe a
-  ChanState {..} <- IntMap.lookup i chans
-  pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList chan))
+  es <- runMaybe a
+  os <- es ^? (#chans % ix i % #chan)
+  pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList os))
 
-runLSPWithOutputs :: [i] -> LSP xs i o -> Maybe [o]
+runLSPWithOutputs ::
+  SomeValsToHList outputs =>
+  [i] ->
+  LSP outputs i o ->
+  Maybe (HList outputs, [o])
 runLSPWithOutputs ls lsp = do
-  (a, (_, (_, i))) <- genESMaybe ls lsp
-  EvalState {..} <- runMaybe a
-  ChanState {..} <- IntMap.lookup i chans
-  pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList chan))
+  (a, (_, (outputIndexList, i))) <- genESMaybe ls lsp
+  es <- runMaybe a
+  os <- es ^? (#chans % ix i % #chan)
+  let o = fmap (\(SomeVal a) -> unsafeCoerce a) (toList os)
+  outputSomeValList <- forM outputIndexList $ \i -> es ^? (#chans % ix i % #chan)
+  pure (someValsToHList outputSomeValList, o)
