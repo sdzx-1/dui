@@ -1,5 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -16,11 +18,12 @@ import Control.Algebra (Has, (:+:))
 import Control.Carrier.Fresh.Strict (Fresh, fresh, runFresh)
 import Control.Carrier.State.Strict (State, modify, runState)
 import Data.Functor.Identity
-import SP.Gen
+import GHC.TypeLits (KnownSymbol, Symbol)
 import SP.Type
 import SP.Util
 import Shelly
 import System.IO
+import SP.Gen (runLSPWithOutputs)
 
 addVertex :: forall a sig m. Has (State (Graph a)) sig m => a -> m ()
 addVertex a = modify @(Graph a) (G.vertex a `G.overlay`)
@@ -99,38 +102,26 @@ showLSP lsp = do
 ge :: Int -> Either Int Int
 ge i = if odd i then Left i else Right i
 
--- >>> show lsp
 -- >>> res
--- >>> runLSPWithOutputs [1..10] lsp
--- "* -> ((*) :>+ (* -> * -> * -> ((*) +++ (* -> * -> * -> ((*) +++ (*)) -> *)) -> * -> * -> ((* -> ((*) :>+ (*))) *** (* -> ((*) *** (*)))) -> ((*) :>+ (*))))"
--- Just [2,4,6,8,10]
--- Just ({["2","3","4","5","6","7","8","9","10","11"], ["-2","-4","-6","-8","-10"], ["(2,(3,3))","(4,(5,5))","(6,(7,7))","(8,(9,9))","(10,(11,11))"]},[2,4,6,8,10])
-res = runLSP [1 .. 10] lsp
-
 -- >>> showLSP lsp
+-- Just ({[2,3,4,5], [2,5,9,14], [Right 2,Left 5,Left 9,Right 14]},[4,6,10,16])
+res = runLSPWithOutputs [1..4] lsp
+
+newtype DebugVal (st :: Symbol) = Val String
+
+instance Show (DebugVal s) where
+  show (Val v) = v
+
 lsp =
   arrLSP (+ 1)
-    :>>> ( arrLSP show
+    :>>> ( arrLSP (Val @"+1" . show)
              :>>+ ( arrLSPState 0 (\s a -> (s + a, s + a))
-                      :>>> arrLSPState 0 (\s a -> (a, a - s))
-                      :>>> arrLSP ge
-                      :>>> ( arrLSP id
-                               ||| ( arrLSP (* (-1))
-                                       :>>> arrLSP id
-                                       :>>> arrLSP ge
-                                       :>>> (arrLSP id ||| arrLSP id)
-                                   )
-                           )
-                      :>>> ( ( filterLSP (< 0)
-                                 :>>> ( arrLSP show
-                                          :>>+ arrLSP abs
-                                      )
-                             )
-                               &&& filterLSP (> 0)
-                               &&& filterLSP (> 0)
-                           )
-                      :>>> ( arrLSP show
-                               :>>+ arrLSP fst
+                      :>>> ( arrLSP (Val @"st" . show)
+                               :>>+ ( arrLSP ge
+                                        :>>> ( arrLSP (Val @"ge" . show)
+                                                 :>>+ (arrLSP (+ 1) ||| arrLSP (+ 2))
+                                             )
+                                    )
                            )
                   )
          )
