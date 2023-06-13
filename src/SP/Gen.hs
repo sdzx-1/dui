@@ -9,11 +9,10 @@ import Control.Algebra (Has, (:+:))
 import Control.Carrier.Fresh.Strict (runFresh)
 import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (State, runState)
-import Control.Effect.Fresh (Fresh, fresh)
-import Control.Effect.Optics (assign)
+import Control.Effect.Fresh (Fresh)
 import Control.Monad (forM)
 import GHC.Exts (IsList (toList))
-import Optics (At (at), Ixed (ix), (%), (^?))
+import Optics (Ixed (ix), (%), (^?))
 import SP.Eval
 import SP.Type
 import SP.Util
