@@ -166,7 +166,7 @@ infixr 3 &&&
 
 infixr 2 |||
 
-(|||) :: LSP xs i1 o -> LSP ys i2 o -> LSP (xs :++: ys :++: '[]) (Either i1 i2) o
+(|||) :: LSP xs i1 o -> LSP ys i2 o -> LSP (xs :++: ys) (Either i1 i2) o
 l ||| r = (l :+++ r) :>>> arrLSP bothC
 
 (&&&) :: LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: ys) i (o1, o2)

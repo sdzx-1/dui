@@ -87,9 +87,11 @@ type family Reverse' (a :: [xs]) (b :: [xs]) :: [xs] where
   Reverse' '[] ys = ys
   Reverse' (x ': xs) ys = Reverse' xs (x ': ys)
 
-infixl 2 :++:
+infixr 2 :++:
 
 type family (:++:) (a :: [xs]) (b :: [xs]) :: [xs] where
+  '[] :++: ys = ys
+  xs :++: '[] = xs
   xs :++: ys = Reverse' (Reverse' xs '[]) ys
 
 data LSP (outputs :: [Type]) i o where
