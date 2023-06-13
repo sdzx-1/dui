@@ -63,7 +63,7 @@ genGraph' i = \case
     addEdge @Int (o1', ko)
     addEdge @Int (o2', ko)
     pure ko
-  a :>+ b -> do
+  a :>>+ b -> do
     o1 <- fresh
     o2 <- fresh
     addEdge @Int (i, o1)
@@ -111,7 +111,7 @@ lsps = lsp ||| lsp
 lsp =
   arrLSP (+ 1)
     :>>> ( arrLSP show
-             :>+ arrLSPState 0 (\s a -> (s + a, s + a))
+             :>>+ arrLSPState 0 (\s a -> (s + a, s + a))
              :>>> arrLSPState 0 (\s a -> (a, a - s))
              :>>> arrLSP ge
              :>>> ( arrLSP id
@@ -125,5 +125,5 @@ lsp =
                       &&& filterLSP (> 0)
                       &&& filterLSP (> 0)
                   )
-             :>>> (arrLSP id :>+ arrLSP fst)
+             :>>> (arrLSP id :>>+ arrLSP fst)
          )

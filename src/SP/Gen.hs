@@ -54,7 +54,7 @@ genES' i (lsp :*** rsp) = do
   assign @EvalState (#chans % at ko) (Just initChanState)
   mapM_ runningAdd [BothDownFst fsto' sndo' ko, BothDownSnd sndo' fsto' ko]
   pure (fots ++ sots, ko)
-genES' i (lsp :>+ rsp) = do
+genES' i (lsp :>>+ rsp) = do
   fsto <- fresh
   sndo <- fresh
   assign @EvalState (#chans % at fsto) (Just initChanState)
@@ -78,6 +78,13 @@ genESMaybe ls lsp =
 
 runLSP :: [i] -> LSP xs i o -> Maybe [o]
 runLSP ls lsp = do
+  (a, (_, (_, i))) <- genESMaybe ls lsp
+  EvalState {..} <- runMaybe a
+  ChanState {..} <- IntMap.lookup i chans
+  pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList chan))
+
+runLSPWithOutputs :: [i] -> LSP xs i o -> Maybe [o]
+runLSPWithOutputs ls lsp = do
   (a, (_, (_, i))) <- genESMaybe ls lsp
   EvalState {..} <- runMaybe a
   ChanState {..} <- IntMap.lookup i chans
