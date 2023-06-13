@@ -18,12 +18,30 @@ import Control.Algebra (Has, (:+:))
 import Control.Carrier.Fresh.Strict (Fresh, fresh, runFresh)
 import Control.Carrier.State.Strict (State, modify, runState)
 import Data.Functor.Identity
-import GHC.TypeLits (KnownSymbol, Symbol)
+import GHC.TypeLits (Symbol)
+import SP.Gen (runLSPWithOutputs)
 import SP.Type
 import SP.Util
 import Shelly
 import System.IO
-import SP.Gen (runLSPWithOutputs)
+
+data ChanNode
+  = CN Int
+  | EitherUpCN Int
+  | EitherDownCN Int
+  | BothUpCN Int
+  | BothDownCN Int
+  | BothCopyUpCN Int
+  deriving (Ord, Eq)
+
+instance Show ChanNode where
+  show = \case
+    CN i -> show i
+    EitherUpCN i -> show i
+    EitherDownCN i -> show i
+    BothUpCN i -> show i
+    BothDownCN i -> show i
+    BothCopyUpCN i -> show i
 
 addVertex :: forall a sig m. Has (State (Graph a)) sig m => a -> m ()
 addVertex a = modify @(Graph a) (G.vertex a `G.overlay`)
@@ -32,61 +50,68 @@ addEdge :: forall a sig m. Has (State (Graph a)) sig m => (a, a) -> m ()
 addEdge (a, b) = modify @(Graph a) ((G.vertex a `G.connect` G.Vertex b) `G.overlay`)
 
 genGraph' ::
-  Has (Fresh :+: State (Graph Int)) sig m =>
-  Int ->
+  Has (Fresh :+: State (Graph ChanNode)) sig m =>
+  ChanNode ->
   LSP xs i o ->
-  m Int
+  m ChanNode
 genGraph' i = \case
   E _ -> do
-    i' <- fresh
-    addEdge @Int (i, i')
+    i' <- CN <$> fresh
+    addEdge @ChanNode (i, i')
     pure i'
   a :>>> b -> do
     ai <- genGraph' i a
     genGraph' ai b
   a :+++ b -> do
-    o1 <- fresh
-    o2 <- fresh
-    addEdge @Int (i, o1)
-    addEdge @Int (i, o2)
+    o1 <- EitherUpCN <$> fresh
+    o2 <- EitherUpCN <$> fresh
+    addEdge @ChanNode (i, o1)
+    addEdge @ChanNode (i, o2)
     o1' <- genGraph' o1 a
     o2' <- genGraph' o2 b
-    ko <- fresh
-    addEdge @Int (o1', ko)
-    addEdge @Int (o2', ko)
+    ko <- EitherDownCN <$> fresh
+    addEdge @ChanNode (o1', ko)
+    addEdge @ChanNode (o2', ko)
     pure ko
   a :*** b -> do
-    o1 <- fresh
-    o2 <- fresh
-    addEdge @Int (i, o1)
-    addEdge @Int (i, o2)
+    o1 <- BothUpCN <$> fresh
+    o2 <- BothUpCN <$> fresh
+    addEdge @ChanNode (i, o1)
+    addEdge @ChanNode (i, o2)
     o1' <- genGraph' o1 a
     o2' <- genGraph' o2 b
-    ko <- fresh
-    addEdge @Int (o1', ko)
-    addEdge @Int (o2', ko)
+    ko <- BothDownCN <$> fresh
+    addEdge @ChanNode (o1', ko)
+    addEdge @ChanNode (o2', ko)
     pure ko
   a :>>+ b -> do
-    o1 <- fresh
-    o2 <- fresh
-    addEdge @Int (i, o1)
-    addEdge @Int (i, o2)
+    o1 <- BothCopyUpCN <$> fresh
+    o2 <- BothCopyUpCN <$> fresh
+    addEdge @ChanNode (i, o1)
+    addEdge @ChanNode (i, o2)
     genGraph' o1 a
     genGraph' o2 b
 
 genGraph lsp =
   fst $
     runIdentity $
-      runState @(Graph Int) (Vertex 0) $
+      runState @(Graph ChanNode) (Vertex (CN 0)) $
         runFresh 1 $
-          genGraph' 0 lsp
+          genGraph' (CN 0) lsp
 
 renderLSP :: LSP xs i o -> String
 renderLSP lsp =
   export
     defaultStyleViaShow
-      { preamble = ["rankdir=LR"]
-      -- , defaultVertexAttributes = ["shape" := "plaintext"]
+      { preamble = ["rankdir=LR"],
+        edgeAttributes = \x y -> case (x, y) of
+          (_, EitherUpCN _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
+          (_, EitherDownCN _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
+          (_, BothUpCN _) -> ["color" := "red", "style" := "dashed", "label" := "B"]
+          (_, BothDownCN _) -> ["color" := "red", "style" := "dashed", "label" := "B"]
+          (_, BothCopyUpCN _) -> ["color" := "green", "style" := "dashed", "label" := "C"]
+          _ -> ["color" := "black"]
+          -- , defaultVertexAttributes = ["shape" := "plaintext"]
       }
     (genGraph lsp)
 
@@ -99,29 +124,30 @@ showLSP lsp = do
     run_ "eog" ["lsp.png"]
 
 ----------------------------- example
-ge :: Int -> Either Int Int
-ge i = if odd i then Left i else Right i
-
--- >>> res
--- >>> showLSP lsp
--- Just ({[2,3,4,5], [2,5,9,14], [Right 2,Left 5,Left 9,Right 14]},[4,6,10,16])
-res = runLSPWithOutputs [1..4] lsp
-
 newtype DebugVal (st :: Symbol) = Val String
 
 instance Show (DebugVal s) where
   show (Val v) = v
 
+debug :: forall (s :: Symbol) i. Show i => LSP '[DebugVal s] i i
+debug = arrLSP (Val @s . show) :>>+ arrLSP id
+
+ge :: Int -> Either Int Int
+ge i = if odd i then Left i else Right i
+
 lsp =
-  arrLSP (+ 1)
-    :>>> ( arrLSP (Val @"+1" . show)
-             :>>+ ( arrLSPState 0 (\s a -> (s + a, s + a))
-                      :>>> ( arrLSP (Val @"st" . show)
-                               :>>+ ( arrLSP ge
-                                        :>>> ( arrLSP (Val @"ge" . show)
-                                                 :>>+ (arrLSP (+ 1) ||| arrLSP (+ 2))
-                                             )
-                                    )
-                           )
-                  )
-         )
+  debug @"input"
+    :>>> arrLSP (+ 1)
+    :>>> debug @"+1"
+    :>>> arrLSPState 0 (\s a -> (s + a, s + a))
+    :>>> debug @"acc"
+    :>>> arrLSP ge
+    :>>> debug @"generate Either"
+    :>>> ((arrLSP (+ 1) :>>> debug @"el") ||| arrLSP (+ 2))
+    :>>> debug @"modify Either"
+    :>>> (arrLSP (* 2) &&& arrLSP id)
+
+-- >>> res
+-- >>> showLSP (lsp)
+-- Just ({[1,2,3,4], [2,3,4,5], [2,5,9,14], [Right 2,Left 5,Left 9,Right 14], [6,10], [4,6,16,10]},[(8,4),(12,6),(32,16),(20,10)])
+res = runLSPWithOutputs [1 .. 4] lsp
