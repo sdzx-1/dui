@@ -32,9 +32,13 @@ instance Monad (SP i o) where
   (Put o sp) >>= f = Put o (sp >>= f)
   (Return a) >>= f = f a
 
-get = Get Return
+get ::
+  HasLabelledLift (SP i o) sig m => m i
+get = lift (Get Return)
 
-put o = Put o (Return ())
+put ::
+  HasLabelledLift (SP i o) sig m => o -> m ()
+put o = lift (Put o (Return ()))
 
 example ::
   ( Has (State Int) sig m,
@@ -42,13 +46,13 @@ example ::
   ) =>
   m ()
 example = do
-  lift $ put "init"
-  lift $ put "loop start"
+  put "init"
+  put "loop start"
   forever $ do
-    b <- lift get
+    b <- get
     S.modify @Int (+ 1)
     i <- S.get @Int
-    lift (put (show (b, i)))
+    put (show (b, i))
 
 runExample =
   runLabelledLift $
