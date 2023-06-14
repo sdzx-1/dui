@@ -99,6 +99,7 @@ data LSP (outputs :: [Type]) i o where
   (:>>>) :: LSP xs i o -> LSP ys o p -> LSP (xs :++: ys) i p
   (:+++) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (Either i1 i2) (Either o1 o2)
   (:***) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (i1, i2) (o1, o2)
+  LoopEither :: LSP xs (Either i k) (Either o k) -> LSP xs i o
   (:>>+) :: LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: '[o1] :++: ys) i o2
 
 infixr 1 :>>>
@@ -115,4 +116,5 @@ instance Show (LSP xs i o) where
     (a :>>> b) -> show a ++ " -> " ++ show b
     (a :+++ b) -> "((" ++ show a ++ ") +++ (" ++ show b ++ "))"
     (a :*** b) -> "((" ++ show a ++ ") *** (" ++ show b ++ "))"
+    (LoopEither lsp) -> "[LoopEither " ++ show lsp ++ "]"
     (a :>>+ b) -> "((" ++ show a ++ ") :>+ (" ++ show b ++ "))"

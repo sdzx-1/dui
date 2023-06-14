@@ -73,6 +73,16 @@ genGraph' i = \case
     addEdge @ChanNode (o1', ko)
     addEdge @ChanNode (o2', ko)
     pure ko
+  LoopEither lsp -> do
+    rightI <- EitherUpCN <$> fresh
+    i1 <- EitherDownCN <$> fresh
+    addEdge @ChanNode (i, i1)
+    addEdge @ChanNode (rightI, i1)
+    o1 <- genGraph' i1 lsp
+    leftO <- EitherUpCN <$> fresh
+    addEdge @ChanNode (o1, leftO)
+    addEdge @ChanNode (o1, rightI)
+    pure leftO
   a :*** b -> do
     o1 <- BothUpCN <$> fresh
     o2 <- BothUpCN <$> fresh
