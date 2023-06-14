@@ -39,16 +39,16 @@ genES' i ((:+++) lsp rsp) = do
 genES' i (lsp :*** rsp) = do
   fsto <- newCSIndex
   sndo <- newCSIndex
-  mapM_ runningAdd [BothUp i (fsto, sndo)]
+  mapM_ runningAdd [TupleUp i (fsto, sndo)]
   (fots, fsto') <- genES' fsto lsp
   (sots, sndo') <- genES' sndo rsp
   ko <- newCSIndex
-  mapM_ runningAdd [BothDownFst fsto' sndo' ko, BothDownSnd sndo' fsto' ko]
+  mapM_ runningAdd [TupleDownFst fsto' sndo' ko, TupleDownSnd sndo' fsto' ko]
   pure (fots ++ sots, ko)
 genES' i (lsp :>>+ rsp) = do
   fsto <- newCSIndex
   sndo <- newCSIndex
-  mapM_ runningAdd [BothCopy i (fsto, sndo)]
+  mapM_ runningAdd [Both i (fsto, sndo)]
   (fots, fsto') <- genES' fsto lsp
   (sots, sndo') <- genES' sndo rsp
   pure (fots ++ [fsto'] ++ sots, sndo')

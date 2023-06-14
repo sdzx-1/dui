@@ -36,18 +36,18 @@ data SomeSP
   | EitherUp Int (Int, Int)
   | EitherDownLeft Int Int
   | EitherDownRight Int Int
-  | BothUp Int (Int, Int)
-  | BothCopy Int (Int, Int)
-  | BothDownFst
+  | TupleUp Int (Int, Int)
+  | TupleDownFst
       { soureIndex :: Int,
         otherIndex :: Int,
         targeIndex :: Int
       }
-  | BothDownSnd
+  | TupleDownSnd
       { soureIndex :: Int,
         otherIndex :: Int,
         targeIndex :: Int
       }
+  | Both Int (Int, Int)
 
 data ChanState = ChanState
   { chan :: Seq SomeVal,

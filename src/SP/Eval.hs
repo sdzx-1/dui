@@ -22,20 +22,20 @@ eval = do
     Just sfun -> do
       case sfun of
         ------------------------------------------------------------------------
-        BothCopy i (o1, o2) -> do
+        Both i (o1, o2) -> do
           readVal sfun i $ \someVal -> do
             writeVal someVal o1
             writeVal someVal o2
             runningAdd sfun
         ------------------------------------------------------------------------
-        BothUp i (o1, o2) -> do
+        TupleUp i (o1, o2) -> do
           readVal sfun i $ \(SomeVal val) -> do
             let (va, vb) = unsafeCoerce val
             writeVal (SomeVal va) o1
             writeVal (SomeVal vb) o2
             runningAdd sfun
         ------------------------------------------------------------------------
-        BothDownFst si other ti -> do
+        TupleDownFst si other ti -> do
           len <- getChanLength other
           if len < 1
             then attochSomeSP sfun si
@@ -45,7 +45,7 @@ eval = do
                 writeVal (SomeVal (vl, vr)) ti
                 runningAdd sfun
         ------------------------------------------------------------------------
-        BothDownSnd si other ti -> do
+        TupleDownSnd si other ti -> do
           len <- getChanLength other
           if len < 1
             then attochSomeSP sfun si
