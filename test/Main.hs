@@ -12,8 +12,10 @@ main = hspec $ do
     it "test :+++ " $ do
       property $ \x -> prop_fun1 x
     it "test filterLSP " $ do
-      property $ \x ls-> prop_fun2 x ls
+      property $ \x ls -> prop_fun2 x ls
     it "test (&&&) " $ do
-      property $ \x ls-> prop_fun3 x ls
+      property $ \x ls -> prop_fun3 x ls
     it "test (:>>+) " $ do
-      property $ \x ls-> prop_fun4 x ls
+      property $ \x ls -> prop_fun4 x ls
+    it "test LoopEither " $ do
+      testls `shouldBe` True

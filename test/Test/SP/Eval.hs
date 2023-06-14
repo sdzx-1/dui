@@ -76,3 +76,42 @@ prop_fun4 f1 f2 f3 ls =
    in a == map f1 ls
         && b == map (f2 . f1) ls
         && c == map (f3 . f2 . f1) ls
+
+cvsp :: [Int] -> SP Int (Either [Int] Int)
+cvsp xs = Get $ \x ->
+  if x `elem` vs
+    then Put (Left $ reverse (x : xs)) $ cvsp []
+    else Put (Right x) $ cvsp (x : xs)
+
+ge :: Int -> Either Int Int
+ge i = if odd i then Left i else Right i
+
+lp =
+  LoopEither
+    ( arrLSP bothC
+        :>>> arrLSP ge
+        :>>> (arrLSP (\x -> x * 3 + 1) ||| arrLSP (`div` 2))
+        :>>> E (cvsp [])
+    )
+
+bbSeq :: Int -> [Int]
+bbSeq i =
+  if i `elem` vs
+    then [i]
+    else
+      i
+        : bbSeq
+          ( if odd i
+              then i * 3 + 1
+              else i `div` 2
+          )
+
+vs :: [Int]
+vs = [1, 2, 4]
+
+testL :: Int -> Bool
+testL i =
+  let Just [res] = runLSP [i] lp
+   in (i : res) == bbSeq i
+
+testls = all testL [5 .. 16]
