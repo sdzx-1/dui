@@ -102,6 +102,7 @@ data LSP (outputs :: [Type]) i o where
   (:***) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (i1, i2) (o1, o2)
   LoopEither :: LSP xs (Either i k) (Either o k) -> LSP xs i o
   (:>>+) :: LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: '[o1] :++: ys) i o2
+  -- Dyn :: LSP xs (Either (LSP xs a b) a) b
 
 infixr 1 :>>>
 
