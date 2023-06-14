@@ -10,8 +10,10 @@
 module SP.Util where
 
 import Control.Algebra (Has, (:+:))
+import Control.Carrier.Lift (Lift)
 import Control.Carrier.State.Strict (State)
 import Control.Effect.Fresh (Fresh, fresh)
+import Control.Effect.Labelled (HasLabelledLift, LabelledLift, lift, runLabelledLift)
 import Control.Effect.Optics (assign, modifying, preuse, use)
 import qualified Data.IntMap as IntMap
 import Data.Kind (Type)
@@ -177,3 +179,14 @@ instance SomeValsToHList '[] where
 instance (SomeValsToHList xs) => SomeValsToHList (x ': xs) where
   someValsToHList (x : xs) = map (\(SomeVal a) -> unsafeCoerce a) (toList x) :> someValsToHList xs
   someValsToHList [] = error "length error"
+
+get ::
+  HasLabelledLift (SP i o) sig m => m i
+get = lift (Get Return)
+
+put ::
+  HasLabelledLift (SP i o) sig m => o -> m ()
+put o = lift (Put o (Return ()))
+
+runLToLSP :: LabelledLift Lift (SP i o) a -> LSP '[] i o
+runLToLSP = E . runLabelledLift
