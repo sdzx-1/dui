@@ -24,7 +24,9 @@ instance Functor (SP i o) where
   fmap f (Return a) = Return (f a)
 
 instance Applicative (SP i o) where
-  (<*>) = undefined
+  f <*> a = do
+    f' <- f
+    f' <$> a
   pure = Return
 
 instance Monad (SP i o) where
