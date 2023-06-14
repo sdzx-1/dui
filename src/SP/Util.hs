@@ -25,6 +25,7 @@ import Optics (At (at), Ixed (ix), (%))
 import SP.SP
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)
+import Control.Monad (void)
 
 readChan :: SomeSP -> ChanState -> (ChanState, Maybe SomeVal)
 readChan ssp cs@ChanState {..} = case chan of
@@ -192,4 +193,4 @@ putToDownstream o = lift (Put o (Return ()))
 type BottomSP i o sig m = HasLabelledLift (SP i o) sig m
 
 runLToLSP :: LabelledLift Lift (SP i o) a -> LSP '[] i o
-runLToLSP = E . runLabelledLift
+runLToLSP = E . runLabelledLift . void

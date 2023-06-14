@@ -90,7 +90,7 @@ eval = do
             writeVal (SomeVal v) o
             let sp'' = SomeSP (SPWrapper io sp')
             runningAdd sp''
-          Return _ -> error "now never happened!"
+          Return a -> pure a 
       eval
 
 -- run :: EvalState -> IO (EvalState, ())
