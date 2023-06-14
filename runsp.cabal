@@ -138,4 +138,5 @@ test-suite runsp-test
         containers,
         QuickCheck,
         hspec,
+        fused-effects,
         runsp

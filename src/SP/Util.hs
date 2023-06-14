@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE KindSignatures #-}
@@ -187,6 +188,8 @@ getFromUpstream = lift (Get Return)
 putToDownstream ::
   HasLabelledLift (SP i o) sig m => o -> m ()
 putToDownstream o = lift (Put o (Return ()))
+
+type BottomSP i o sig m = HasLabelledLift (SP i o) sig m
 
 runLToLSP :: LabelledLift Lift (SP i o) a -> LSP '[] i o
 runLToLSP = E . runLabelledLift

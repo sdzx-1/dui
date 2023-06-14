@@ -1,15 +1,24 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.SP.Eval where
 
+import Control.Algebra (Has)
+import Control.Carrier.State.Strict (runState)
+import Control.Effect.Labelled (HasLabelledLift, lift)
+import Control.Effect.State (State)
+import qualified Control.Effect.State as S
+import Control.Monad (forever)
 import Data.Function ((&))
 import Data.List (foldl')
 import SP.Gen
 import SP.SP (SP (..))
 import SP.Type
 import SP.Util
+import qualified SP.Util as SP
 import Test.QuickCheck (Arbitrary (arbitrary))
 
 data TestEnv = TestEnv [Int] [Int -> Int]
@@ -84,6 +93,21 @@ cvsp xs = Get $ \x ->
     then Put (Left $ reverse (x : xs)) $ cvsp []
     else Put (Right x) $ cvsp (x : xs)
 
+cv ::
+  ( Has (State [Int]) sig m,
+    BottomSP Int (Either [Int] Int) sig m
+  ) =>
+  m ()
+cv = forever $ do
+  x <- getFromUpstream
+  S.modify (x :)
+  if x `elem` vs
+    then do
+      xs <- S.get
+      putToDownstream (Left $ reverse xs)
+      S.put @[Int] []
+    else putToDownstream (Right x)
+
 ge :: Int -> Either Int Int
 ge i = if odd i then Left i else Right i
 
@@ -92,7 +116,7 @@ lp =
     ( arrLSP bothC
         :>>> arrLSP ge
         :>>> (arrLSP (\x -> x * 3 + 1) ||| arrLSP (`div` 2))
-        :>>> E (cvsp [])
+        :>>> runLToLSP (runState @[Int] [] cv)
     )
 
 bbSeq :: Int -> [Int]
