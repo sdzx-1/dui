@@ -180,13 +180,13 @@ instance (SomeValsToHList xs) => SomeValsToHList (x ': xs) where
   someValsToHList (x : xs) = map (\(SomeVal a) -> unsafeCoerce a) (toList x) :> someValsToHList xs
   someValsToHList [] = error "length error"
 
-get ::
+getFromUpstream ::
   HasLabelledLift (SP i o) sig m => m i
-get = lift (Get Return)
+getFromUpstream = lift (Get Return)
 
-put ::
+putToDownstream ::
   HasLabelledLift (SP i o) sig m => o -> m ()
-put o = lift (Put o (Return ()))
+putToDownstream o = lift (Put o (Return ()))
 
 runLToLSP :: LabelledLift Lift (SP i o) a -> LSP '[] i o
 runLToLSP = E . runLabelledLift
