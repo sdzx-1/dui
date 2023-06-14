@@ -29,9 +29,11 @@ data ChanNode
   = CN Int
   | EitherUpCN Int
   | EitherDownCN Int
+  | TupleUpCn Int
+  | TupleDownCn Int
   | BothUpCN Int
-  | BothDownCN Int
-  | BothCopyUpCN Int
+  | LoopEitherUpCN Int
+  | LoopEitherDownCN Int
   deriving (Ord, Eq)
 
 instance Show ChanNode where
@@ -39,9 +41,11 @@ instance Show ChanNode where
     CN i -> show i
     EitherUpCN i -> show i
     EitherDownCN i -> show i
+    TupleUpCn i -> show i
+    TupleDownCn i -> show i
     BothUpCN i -> show i
-    BothDownCN i -> show i
-    BothCopyUpCN i -> show i
+    LoopEitherUpCN i -> show i
+    LoopEitherDownCN i -> show i
 
 addVertex :: forall a sig m. Has (State (Graph a)) sig m => a -> m ()
 addVertex a = modify @(Graph a) (G.vertex a `G.overlay`)
@@ -74,29 +78,27 @@ genGraph' i = \case
     addEdge @ChanNode (o2', ko)
     pure ko
   LoopEither lsp -> do
-    rightI <- EitherUpCN <$> fresh
-    i1 <- EitherDownCN <$> fresh
+    i1 <- LoopEitherUpCN <$> fresh
     addEdge @ChanNode (i, i1)
-    addEdge @ChanNode (rightI, i1)
     o1 <- genGraph' i1 lsp
-    leftO <- EitherUpCN <$> fresh
+    leftO <- LoopEitherDownCN <$> fresh
     addEdge @ChanNode (o1, leftO)
-    addEdge @ChanNode (o1, rightI)
+    addEdge @ChanNode (o1, i1)
     pure leftO
   a :*** b -> do
-    o1 <- BothUpCN <$> fresh
-    o2 <- BothUpCN <$> fresh
+    o1 <- TupleUpCn <$> fresh
+    o2 <- TupleUpCn <$> fresh
     addEdge @ChanNode (i, o1)
     addEdge @ChanNode (i, o2)
     o1' <- genGraph' o1 a
     o2' <- genGraph' o2 b
-    ko <- BothDownCN <$> fresh
+    ko <- TupleDownCn <$> fresh
     addEdge @ChanNode (o1', ko)
     addEdge @ChanNode (o2', ko)
     pure ko
   a :>>+ b -> do
-    o1 <- BothCopyUpCN <$> fresh
-    o2 <- BothCopyUpCN <$> fresh
+    o1 <- BothUpCN <$> fresh
+    o2 <- BothUpCN <$> fresh
     addEdge @ChanNode (i, o1)
     addEdge @ChanNode (i, o2)
     genGraph' o1 a
@@ -117,11 +119,13 @@ renderLSP lsp =
         edgeAttributes = \x y -> case (x, y) of
           (_, EitherUpCN _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
           (_, EitherDownCN _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
-          (_, BothUpCN _) -> ["color" := "red", "style" := "dashed", "label" := "B"]
-          (_, BothDownCN _) -> ["color" := "red", "style" := "dashed", "label" := "B"]
-          (_, BothCopyUpCN _) -> ["color" := "green", "style" := "dashed", "label" := "C"]
-          _ -> ["color" := "black"]
-          -- , defaultVertexAttributes = ["shape" := "plaintext"]
+          (_, TupleUpCn _) -> ["color" := "red", "style" := "dashed", "label" := "T"]
+          (_, TupleDownCn _) -> ["color" := "red", "style" := "dashed", "label" := "T"]
+          (_, BothUpCN _) -> ["color" := "green", "style" := "dashed", "label" := "B"]
+          (_, LoopEitherUpCN _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
+          (_, LoopEitherDownCN _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
+          _ -> ["color" := "black"],
+        defaultVertexAttributes = ["shape" := "plaintext"]
       }
     (genGraph lsp)
 
@@ -161,3 +165,26 @@ lsp =
 -- >>> showLSP (lsp)
 -- Just ({[1,2,3,4], [2,3,4,5], [2,5,9,14], [Right 2,Left 5,Left 9,Right 14], [6,10], [4,6,16,10]},[(8,4),(12,6),(32,16),(20,10)])
 res = runLSPWithOutputs [1 .. 4] lsp
+
+vs :: [Int]
+vs = [1, 2, 4]
+
+cvsp :: [Int] -> SP Int (Either [Int] Int)
+cvsp xs = Get $ \x ->
+  if x `elem` vs
+    then Put (Left $ reverse (x : xs)) $ cvsp []
+    else Put (Right x) $ cvsp (x : xs)
+
+-- >>> showLSP (lp &&& lp &&& lp)
+-- >>> runLSPWithOutputs [10] lp
+-- Just ({[10,5,16,8], [16]},[[5,16,8,4]])
+lp =
+  LoopEither
+    ( arrLSP bothC
+        :>>> debug @"v1"
+        :>>> arrLSP ge
+        :>>> ( (arrLSP (\x -> x * 3 + 1) :>>> debug @"v2")
+                 ||| arrLSP (`div` 2)
+             )
+        :>>> E (cvsp [])
+    )
