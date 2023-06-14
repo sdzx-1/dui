@@ -8,6 +8,7 @@ import Control.Algebra (Has)
 import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (runState)
 import Control.Effect.State (State)
+import SP.SP (SP (..))
 import SP.Type
 import SP.Util
 import Unsafe.Coerce (unsafeCoerce)
@@ -89,6 +90,7 @@ eval = do
             writeVal (SomeVal v) o
             let sp'' = SomeSP (SPWrapper io sp')
             runningAdd sp''
+          Return _ -> error "now never happened!"
       eval
 
 -- run :: EvalState -> IO (EvalState, ())

@@ -20,6 +20,7 @@ import Control.Carrier.State.Strict (State, modify, runState)
 import Data.Functor.Identity
 import GHC.TypeLits (Symbol)
 import SP.Gen (runLSPWithOutputs)
+import SP.SP (SP (..))
 import SP.Type
 import SP.Util
 import Shelly
@@ -134,7 +135,7 @@ renderLSP lsp =
           BothUpCN _ -> ["color" := "green"]
           LoopEitherUpCN _ -> ["color" := "purple"]
           LoopEitherDownCN _ -> ["color" := "purple"]
-          Joint _ -> ["shape":="point", "style":="filled", "label":="", "width":="0", "height":="0"]
+          Joint _ -> ["shape" := "point", "style" := "filled", "label" := "", "width" := "0", "height" := "0"]
           _ -> ["color" := "black"],
         edgeAttributes = \x y -> case (x, y) of
           (_, EitherUpCN _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
@@ -144,9 +145,9 @@ renderLSP lsp =
           (_, BothUpCN _) -> ["color" := "green", "style" := "dashed", "label" := "B"]
           (_, LoopEitherUpCN _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, LoopEitherDownCN _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
-          (_, Joint _) -> ["dir":="none", "style" := "dashed"]
+          (_, Joint _) -> ["dir" := "none", "style" := "dashed"]
           _ -> ["color" := "black"],
-          defaultVertexAttributes = ["shape" := "plaintext"]
+        defaultVertexAttributes = ["shape" := "plaintext"]
       }
     (genGraph lsp)
 
@@ -190,7 +191,7 @@ res = runLSPWithOutputs [1 .. 4] lsp
 vs :: [Int]
 vs = [1, 2, 4]
 
-cvsp :: [Int] -> SP Int (Either [Int] Int)
+cvsp :: [Int] -> SP Int (Either [Int] Int) ()
 cvsp xs = Get $ \x ->
   if x `elem` vs
     then Put (Left $ reverse (x : xs)) $ cvsp []

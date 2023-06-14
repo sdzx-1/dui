@@ -19,6 +19,7 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import GHC.Exts (IsList (toList))
 import Optics (At (at), Ixed (ix), (%))
+import SP.SP
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -43,16 +44,16 @@ writeChan sv cs@ChanState {..} = case waitingList of
       Just sp
     )
 
-filterSP :: (a -> Bool) -> SP a a
+filterSP :: (a -> Bool) -> SP a a ()
 filterSP p = Get $ \x ->
   if p x
     then Put x (filterSP p)
     else filterSP p
 
-arrSP :: (a -> b) -> SP a b
+arrSP :: (a -> b) -> SP a b ()
 arrSP f = Get $ \x -> Put (f x) (arrSP f)
 
-arrSPState :: s -> (s -> a -> (s, b)) -> SP a b
+arrSPState :: s -> (s -> a -> (s, b)) -> SP a b ()
 arrSPState s f = Get $ \a ->
   let (s', b) = f s a
    in Put b (arrSPState s' f)
@@ -153,7 +154,7 @@ filterLSP p = E (filterSP p)
 arrLSP :: (a -> b) -> LSP '[] a b
 arrLSP f = E (arrSP f)
 
-idSP :: SP o o
+idSP :: SP o o ()
 idSP = Get $ \x -> Put x idSP
 
 idLSP :: forall o. LSP '[] o o

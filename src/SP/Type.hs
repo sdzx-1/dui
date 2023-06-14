@@ -19,14 +19,11 @@ import Data.Sequence (Seq)
 import GHC.Generics (Generic)
 import GHC.OldList (intercalate)
 import Optics (makeFieldLabels)
-
-data SP i o
-  = Get (i -> SP i o)
-  | Put o (SP i o)
+import SP.SP
 
 data SPWrapper i o = SPWrapper
   { ioIndex :: (Int, Int),
-    sp :: SP i o
+    sp :: SP i o ()
   }
 
 data SomeVal = forall a. SomeVal a
@@ -96,7 +93,7 @@ type family (:++:) (a :: [xs]) (b :: [xs]) :: [xs] where
   xs :++: ys = Reverse' (Reverse' xs '[]) ys
 
 data LSP (outputs :: [Type]) i o where
-  E :: SP i o -> LSP '[] i o
+  E :: SP i o () -> LSP '[] i o
   (:>>>) :: LSP xs i o -> LSP ys o p -> LSP (xs :++: ys) i p
   (:+++) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (Either i1 i2) (Either o1 o2)
   (:***) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (i1, i2) (o1, o2)

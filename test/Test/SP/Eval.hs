@@ -7,6 +7,7 @@ module Test.SP.Eval where
 import Data.Function ((&))
 import Data.List (foldl')
 import SP.Gen
+import SP.SP (SP (..))
 import SP.Type
 import SP.Util
 import Test.QuickCheck (Arbitrary (arbitrary))
@@ -77,7 +78,7 @@ prop_fun4 f1 f2 f3 ls =
         && b == map (f2 . f1) ls
         && c == map (f3 . f2 . f1) ls
 
-cvsp :: [Int] -> SP Int (Either [Int] Int)
+cvsp :: [Int] -> SP Int (Either [Int] Int) ()
 cvsp xs = Get $ \x ->
   if x `elem` vs
     then Put (Left $ reverse (x : xs)) $ cvsp []
