@@ -28,6 +28,14 @@ eval = do
             writeVal someVal o2
             runningAdd sfun
         ------------------------------------------------------------------------
+        LoopEitherDown o1 (leftO, i1) -> do
+          readVal sfun o1 $ \(SomeVal val) -> do
+            let (eindex, someVal') = case unsafeCoerce val of
+                  Left leftVal -> (leftO, SomeVal leftVal)
+                  Right rightVal -> (i1, SomeVal (Right rightVal))
+            writeVal someVal' eindex
+            runningAdd sfun
+        ------------------------------------------------------------------------
         TupleUp i (o1, o2) -> do
           readVal sfun i $ \(SomeVal val) -> do
             let (va, vb) = unsafeCoerce val

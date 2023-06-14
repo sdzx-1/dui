@@ -38,11 +38,10 @@ genES' i ((:+++) lsp rsp) = do
   pure (lots ++ rots, ko)
 genES' i (LoopEither lsp) = do 
   i1 <- newCSIndex
-  rightI <- newCSIndex
-  mapM_ runningAdd [EitherDownLeft i i1, EitherDownRight rightI i1]
+  mapM_ runningAdd [EitherDownLeft i i1]
   (ots, o1) <- genES' i1 lsp
   leftO <- newCSIndex
-  mapM_ runningAdd [EitherUp o1 (leftO, rightI)]
+  mapM_ runningAdd [LoopEitherDown o1 (leftO, i1)]
   pure (ots, leftO)
 genES' i (lsp :*** rsp) = do
   fsto <- newCSIndex

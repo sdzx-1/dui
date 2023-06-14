@@ -48,6 +48,7 @@ data SomeSP
         targeIndex :: Int
       }
   | Both Int (Int, Int)
+  | LoopEitherDown Int (Int, Int)
 
 data ChanState = ChanState
   { chan :: Seq SomeVal,
