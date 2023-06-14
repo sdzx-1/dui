@@ -34,6 +34,7 @@ data ChanNode
   | BothUpCN Int
   | LoopEitherUpCN Int
   | LoopEitherDownCN Int
+  | Joint Int
   deriving (Ord, Eq)
 
 instance Show ChanNode where
@@ -46,6 +47,7 @@ instance Show ChanNode where
     BothUpCN i -> show i
     LoopEitherUpCN i -> show i
     LoopEitherDownCN i -> show i
+    Joint i -> show i
 
 addVertex :: forall a sig m. Has (State (Graph a)) sig m => a -> m ()
 addVertex a = modify @(Graph a) (G.vertex a `G.overlay`)
@@ -67,10 +69,12 @@ genGraph' i = \case
     ai <- genGraph' i a
     genGraph' ai b
   a :+++ b -> do
+    joint <- Joint <$> fresh
     o1 <- EitherUpCN <$> fresh
     o2 <- EitherUpCN <$> fresh
-    addEdge @ChanNode (i, o1)
-    addEdge @ChanNode (i, o2)
+    addEdge @ChanNode (i, joint)
+    addEdge @ChanNode (joint, o1)
+    addEdge @ChanNode (joint, o2)
     o1' <- genGraph' o1 a
     o2' <- genGraph' o2 b
     ko <- EitherDownCN <$> fresh
@@ -82,14 +86,18 @@ genGraph' i = \case
     addEdge @ChanNode (i, i1)
     o1 <- genGraph' i1 lsp
     leftO <- LoopEitherDownCN <$> fresh
-    addEdge @ChanNode (o1, leftO)
-    addEdge @ChanNode (o1, i1)
+    joint <- Joint <$> fresh
+    addEdge @ChanNode (o1, joint)
+    addEdge @ChanNode (joint, leftO)
+    addEdge @ChanNode (joint, i1)
     pure leftO
   a :*** b -> do
     o1 <- TupleUpCn <$> fresh
     o2 <- TupleUpCn <$> fresh
-    addEdge @ChanNode (i, o1)
-    addEdge @ChanNode (i, o2)
+    joint <- Joint <$> fresh
+    addEdge @ChanNode (i, joint)
+    addEdge @ChanNode (joint, o1)
+    addEdge @ChanNode (joint, o2)
     o1' <- genGraph' o1 a
     o2' <- genGraph' o2 b
     ko <- TupleDownCn <$> fresh
@@ -99,8 +107,10 @@ genGraph' i = \case
   a :>>+ b -> do
     o1 <- BothUpCN <$> fresh
     o2 <- BothUpCN <$> fresh
-    addEdge @ChanNode (i, o1)
-    addEdge @ChanNode (i, o2)
+    joint <- Joint <$> fresh
+    addEdge @ChanNode (i, joint)
+    addEdge @ChanNode (joint, o1)
+    addEdge @ChanNode (joint, o2)
     genGraph' o1 a
     genGraph' o2 b
 
@@ -116,6 +126,16 @@ renderLSP lsp =
   export
     defaultStyleViaShow
       { preamble = ["rankdir=LR"],
+        vertexAttributes = \case
+          EitherUpCN _ -> ["color" := "blue"]
+          EitherDownCN _ -> ["color" := "blue"]
+          TupleUpCn _ -> ["color" := "red"]
+          TupleDownCn _ -> ["color" := "red"]
+          BothUpCN _ -> ["color" := "green"]
+          LoopEitherUpCN _ -> ["color" := "purple"]
+          LoopEitherDownCN _ -> ["color" := "purple"]
+          Joint _ -> ["shape":="point", "style":="filled", "label":="", "width":="0", "height":="0"]
+          _ -> ["color" := "black"],
         edgeAttributes = \x y -> case (x, y) of
           (_, EitherUpCN _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
           (_, EitherDownCN _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
@@ -124,8 +144,9 @@ renderLSP lsp =
           (_, BothUpCN _) -> ["color" := "green", "style" := "dashed", "label" := "B"]
           (_, LoopEitherUpCN _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, LoopEitherDownCN _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
+          (_, Joint _) -> ["dir":="none", "style" := "dashed"]
           _ -> ["color" := "black"],
-        defaultVertexAttributes = ["shape" := "plaintext"]
+          defaultVertexAttributes = ["shape" := "plaintext"]
       }
     (genGraph lsp)
 
