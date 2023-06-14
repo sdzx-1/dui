@@ -58,16 +58,6 @@ arrSPState s f = Get $ \a ->
   let (s', b) = f s a
    in Put b (arrSPState s' f)
 
-allChansValues :: EvalState -> IntMap.IntMap [v]
-allChansValues (EvalState chans _) =
-  IntMap.map
-    ( \(ChanState chan _) -> chan2v chan
-    )
-    chans
-
-chan2v :: Seq SomeVal -> [v]
-chan2v s = toList $ fmap (\(SomeVal v) -> unsafeCoerce v) s
-
 initChanState :: ChanState
 initChanState =
   ChanState
