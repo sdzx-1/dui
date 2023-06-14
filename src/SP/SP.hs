@@ -5,7 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 
-module SP.SPM where
+module SP.SP where
 
 import Control.Algebra (Has)
 import Control.Carrier.State.Strict (State, runState)
