@@ -79,6 +79,7 @@ library
                     , fused-effects-optics
                     , algebraic-graphs
                     , shelly
+                    , text
 
     -- Directories containing source files.
     hs-source-dirs:   src

@@ -25,6 +25,7 @@ import SP.Type
 import SP.Util
 import Shelly
 import System.IO
+import qualified Data.Text as T
 
 data ChanNode
   = CN Int
@@ -155,9 +156,11 @@ showLSP :: LSP xs i o -> IO ()
 showLSP lsp = do
   hSetBuffering stdout LineBuffering
   shelly $ verbosely $ do
-    liftIO $ writeFile "lsp.dot" $ renderLSP lsp
-    run_ "dot" ["-Tpng", "-o", "lsp.png", "lsp.dot"]
-    run_ "eog" ["lsp.png"]
+    let dotName = "/tmp/lsp.dot"
+        pngName = "/tmp/lsp.png"
+    liftIO $ writeFile dotName $ renderLSP lsp
+    run_ "dot" ["-Tpng", "-o", pngName, T.pack dotName]
+    run_ "eog" [pngName]
 
 ----------------------------- example
 newtype DebugVal (st :: Symbol) = Val String
