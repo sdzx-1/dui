@@ -1,5 +1,5 @@
-# runsp
-一些关于流处理的思考。
+# dui
+一些关于流处理的思考，以及基于流处理器的GUI框架。
 
 对于有输入，输出的流处理单元，最好的建模方式是Arrow（参考这篇文章[arrows](http://www.cse.chalmers.se/~rjmh/Papers/arrows.pdf)）。论文的第六章：Stream Processors: Processes as Arrows 介绍了如何用Arrow构建复杂的流处理器。
 
