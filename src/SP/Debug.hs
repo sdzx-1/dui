@@ -40,6 +40,7 @@ data ChanNode
   | LoopEitherUpCN OutputType Int
   | LoopEitherDownCN OutputType Int
   | Joint Int
+  deriving (Show)
 
 instance Eq ChanNode where
   a == b = chanNodeToInt a == chanNodeToInt b
@@ -58,17 +59,17 @@ chanNodeToInt (LoopEitherUpCN _ i) = i
 chanNodeToInt (LoopEitherDownCN _ i) = i
 chanNodeToInt (Joint i) = i
 
-instance Show ChanNode where
-  show = \case
-    CN ot i -> remQ ot ++ ", " ++ show i
-    EitherUpCN ot i -> remQ ot ++ ", " ++ show i
-    EitherDownCN ot i -> remQ ot ++ ", " ++ show i
-    TupleUpCn ot i -> remQ ot ++ ", " ++ show i
-    TupleDownCn ot i -> remQ ot ++ ", " ++ show i
-    BothUpCN ot i -> remQ ot ++ ", " ++ show i
-    LoopEitherUpCN ot i -> remQ ot ++ ", " ++ show i
-    LoopEitherDownCN ot i -> remQ ot ++ ", " ++ show i
-    Joint i -> show i
+toName :: ChanNode -> String
+toName = \case
+  CN _ i -> show i
+  EitherUpCN _ i -> show i
+  EitherDownCN _ i -> show i
+  TupleUpCn _ i -> show i
+  TupleDownCn _ i -> show i
+  BothUpCN _ i -> show i
+  LoopEitherUpCN _ i -> show i
+  LoopEitherDownCN _ i -> show i
+  Joint i -> show i
 
 remQ :: String -> String
 remQ [] = []
@@ -168,18 +169,18 @@ genGraph lsp =
 renderLSP :: Typeable i => LSP xs i o -> String
 renderLSP lsp =
   export
-    defaultStyleViaShow
+    (defaultStyle toName)
       { preamble = ["rankdir=LR"],
         vertexAttributes = \case
-          EitherUpCN _ _ -> ["color" := "blue"]
-          EitherDownCN _ _ -> ["color" := "blue"]
-          TupleUpCn _ _ -> ["color" := "red"]
-          TupleDownCn _ _ -> ["color" := "red"]
-          BothUpCN _ _ -> ["color" := "green"]
-          LoopEitherUpCN _ _ -> ["color" := "purple"]
-          LoopEitherDownCN _ _ -> ["color" := "purple"]
+          EitherUpCN ot _ -> ["color" := "blue", "label" := remQ ot]
+          EitherDownCN ot _ -> ["color" := "blue", "label" := remQ ot]
+          TupleUpCn ot _ -> ["color" := "red", "label" := remQ ot]
+          TupleDownCn ot _ -> ["color" := "red", "label" := remQ ot]
+          BothUpCN ot _ -> ["color" := "green", "label" := remQ ot]
+          LoopEitherUpCN ot _ -> ["color" := "purple", "label" := remQ ot]
+          LoopEitherDownCN ot _ -> ["color" := "purple", "label" := remQ ot]
           Joint _ -> ["shape" := "point", "style" := "filled", "label" := "", "width" := "0", "height" := "0"]
-          _ -> ["color" := "black"],
+          CN ot _ -> ["color" := "black", "label" := remQ ot],
         edgeAttributes = \x y -> case (x, y) of
           (_, EitherUpCN _ _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
           (_, EitherDownCN _ _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
@@ -189,7 +190,7 @@ renderLSP lsp =
           (_, LoopEitherUpCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, LoopEitherDownCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, Joint _) -> ["dir" := "none", "style" := "dashed"]
-          _ -> ["color" := "black"],
+          (_, CN _ _) -> ["color" := "black"],
         defaultVertexAttributes = ["shape" := "plaintext"]
       }
     (genGraph lsp)
