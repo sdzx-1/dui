@@ -36,7 +36,7 @@ data ChanNode
   | EitherDownCN OutputType Int
   | TupleUpCn OutputType Int
   | TupleDownCn OutputType Int
-  | BothUpCN Int
+  | BothUpCN OutputType Int
   | LoopEitherUpCN OutputType Int
   | LoopEitherDownCN OutputType Int
   | Joint Int
@@ -53,7 +53,7 @@ chanNodeToInt (EitherUpCN _ i) = i
 chanNodeToInt (EitherDownCN _ i) = i
 chanNodeToInt (TupleUpCn _ i) = i
 chanNodeToInt (TupleDownCn _ i) = i
-chanNodeToInt (BothUpCN i) = i
+chanNodeToInt (BothUpCN _ i) = i
 chanNodeToInt (LoopEitherUpCN _ i) = i
 chanNodeToInt (LoopEitherDownCN _ i) = i
 chanNodeToInt (Joint i) = i
@@ -65,7 +65,7 @@ instance Show ChanNode where
     EitherDownCN ot i -> remQ ot ++ ", " ++ show i
     TupleUpCn ot i -> remQ ot ++ ", " ++ show i
     TupleDownCn ot i -> remQ ot ++ ", " ++ show i
-    BothUpCN i -> show i
+    BothUpCN ot i -> remQ ot ++ ", " ++ show i
     LoopEitherUpCN ot i -> remQ ot ++ ", " ++ show i
     LoopEitherDownCN ot i -> remQ ot ++ ", " ++ show i
     Joint i -> show i
@@ -147,8 +147,9 @@ genGraph' i = \case
     addEdge @ChanNode (o2', ko)
     pure ko
   a :>>+ b -> do
-    o1 <- BothUpCN <$> fresh
-    o2 <- BothUpCN <$> fresh
+    let ait = getLSPInputTypeVal a
+    o1 <- BothUpCN ait <$> fresh
+    o2 <- BothUpCN ait <$> fresh
     joint <- Joint <$> fresh
     addEdge @ChanNode (i, joint)
     addEdge @ChanNode (joint, o1)
@@ -174,7 +175,7 @@ renderLSP lsp =
           EitherDownCN _ _ -> ["color" := "blue"]
           TupleUpCn _ _ -> ["color" := "red"]
           TupleDownCn _ _ -> ["color" := "red"]
-          BothUpCN _ -> ["color" := "green"]
+          BothUpCN _ _ -> ["color" := "green"]
           LoopEitherUpCN _ _ -> ["color" := "purple"]
           LoopEitherDownCN _ _ -> ["color" := "purple"]
           Joint _ -> ["shape" := "point", "style" := "filled", "label" := "", "width" := "0", "height" := "0"]
@@ -184,7 +185,7 @@ renderLSP lsp =
           (_, EitherDownCN _ _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
           (_, TupleUpCn _ _) -> ["color" := "red", "style" := "dashed", "label" := "T"]
           (_, TupleDownCn _ _) -> ["color" := "red", "style" := "dashed", "label" := "T"]
-          (_, BothUpCN _) -> ["color" := "green", "style" := "dashed", "label" := "B"]
+          (_, BothUpCN _ _) -> ["color" := "green", "style" := "dashed", "label" := "B"]
           (_, LoopEitherUpCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, LoopEitherDownCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, Joint _) -> ["dir" := "none", "style" := "dashed"]
@@ -241,7 +242,7 @@ cvsp xs = Get $ \x ->
     then Put (Left $ reverse (x : xs)) $ cvsp []
     else Put (Right x) $ cvsp (x : xs)
 
--- >>> showLSP (lp &&& lp &&& lp &&& lp)
+-- >>> showLSP (lp :>>+ lp  )
 -- >>> runLSPWithOutputs [10] lp
 -- Just ({[10,5,16,8], [16]},[[5,16,8,4]])
 lp =
