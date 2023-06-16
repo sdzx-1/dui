@@ -20,6 +20,7 @@ import SP.Type
 import SP.Util
 import qualified SP.Util as SP
 import Test.QuickCheck (Arbitrary (arbitrary))
+import Data.Typeable (Typeable)
 
 data TestEnv = TestEnv [Int] [Int -> Int]
 
@@ -34,7 +35,7 @@ instance Arbitrary TestEnv where
 dirEvalTestEnv :: TestEnv -> [Int]
 dirEvalTestEnv (TestEnv ls fs) = map (\x -> foldl' (&) x fs) ls
 
-creatFunLSP :: [a -> a] -> LSP '[] a a
+creatFunLSP :: Typeable a => [a -> a] -> LSP '[] a a
 creatFunLSP = foldr ((:>>>) . arrLSP) (arrLSP id)
 
 lspEvalTestEnv :: TestEnv -> Maybe [Int]
