@@ -169,7 +169,11 @@ infixr 2 |||
   LSP (xs :++: ys) (Either i1 i2) o
 l ||| r = (l :+++ r) :>>> arrLSP bothC
 
-(&&&) :: Typeable i => LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: ys) i (o1, o2)
+(&&&) ::
+  (Typeable i, Typeable o1, Typeable o2) =>
+  LSP xs i o1 ->
+  LSP ys i o2 ->
+  LSP (xs :++: ys) i (o1, o2)
 f &&& s = arrLSP (\x -> (x, x)) :>>> (f :*** s)
 
 bothC :: Either a a -> a
