@@ -37,8 +37,8 @@ data ChanNode
   | TupleUpCn Int
   | TupleDownCn Int
   | BothUpCN Int
-  | LoopEitherUpCN Int
-  | LoopEitherDownCN Int
+  | LoopEitherUpCN OutputType Int
+  | LoopEitherDownCN OutputType Int
   | Joint Int
 
 instance Eq ChanNode where
@@ -54,8 +54,8 @@ chanNodeToInt (EitherDownCN _ i) = i
 chanNodeToInt (TupleUpCn i) = i
 chanNodeToInt (TupleDownCn i) = i
 chanNodeToInt (BothUpCN i) = i
-chanNodeToInt (LoopEitherUpCN i) = i
-chanNodeToInt (LoopEitherDownCN i) = i
+chanNodeToInt (LoopEitherUpCN _ i) = i
+chanNodeToInt (LoopEitherDownCN _ i) = i
 chanNodeToInt (Joint i) = i
 
 instance Show ChanNode where
@@ -66,8 +66,8 @@ instance Show ChanNode where
     TupleUpCn i -> show i
     TupleDownCn i -> show i
     BothUpCN i -> show i
-    LoopEitherUpCN i -> show i
-    LoopEitherDownCN i -> show i
+    LoopEitherUpCN ot i -> remQ ot ++ ", " ++ show i
+    LoopEitherDownCN ot i -> remQ ot ++ ", " ++ show i
     Joint i -> show i
 
 remQ :: String -> String
@@ -117,11 +117,13 @@ genGraph' i = \case
     addEdge @ChanNode (o1', ko)
     addEdge @ChanNode (o2', ko)
     pure ko
-  LoopEither lsp -> do
-    i1 <- LoopEitherUpCN <$> fresh
+  LoopEither (lsp :: LSP xs (Either i' k') (Either o' k')) -> do
+    let it = getLSPInputTypeVal lsp
+    i1 <- LoopEitherUpCN it <$> fresh
     addEdge @ChanNode (i, i1)
     o1 <- genGraph' i1 lsp
-    leftO <- LoopEitherDownCN <$> fresh
+    let ot = show $ typeOf @o' undefined
+    leftO <- LoopEitherDownCN ot <$> fresh
     joint <- Joint <$> fresh
     addEdge @ChanNode (o1, joint)
     addEdge @ChanNode (joint, leftO)
@@ -169,8 +171,8 @@ renderLSP lsp =
           TupleUpCn _ -> ["color" := "red"]
           TupleDownCn _ -> ["color" := "red"]
           BothUpCN _ -> ["color" := "green"]
-          LoopEitherUpCN _ -> ["color" := "purple"]
-          LoopEitherDownCN _ -> ["color" := "purple"]
+          LoopEitherUpCN _ _ -> ["color" := "purple"]
+          LoopEitherDownCN _ _ -> ["color" := "purple"]
           Joint _ -> ["shape" := "point", "style" := "filled", "label" := "", "width" := "0", "height" := "0"]
           _ -> ["color" := "black"],
         edgeAttributes = \x y -> case (x, y) of
@@ -179,8 +181,8 @@ renderLSP lsp =
           (_, TupleUpCn _) -> ["color" := "red", "style" := "dashed", "label" := "T"]
           (_, TupleDownCn _) -> ["color" := "red", "style" := "dashed", "label" := "T"]
           (_, BothUpCN _) -> ["color" := "green", "style" := "dashed", "label" := "B"]
-          (_, LoopEitherUpCN _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
-          (_, LoopEitherDownCN _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
+          (_, LoopEitherUpCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
+          (_, LoopEitherDownCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, Joint _) -> ["dir" := "none", "style" := "dashed"]
           _ -> ["color" := "black"],
         defaultVertexAttributes = ["shape" := "plaintext"]
