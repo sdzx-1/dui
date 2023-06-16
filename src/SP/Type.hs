@@ -96,11 +96,16 @@ type family (:++:) (a :: [xs]) (b :: [xs]) :: [xs] where
 data LSP (outputs :: [Type]) i o where
   E :: (Typeable i, Typeable o) => SP i o () -> LSP '[] i o
   (:>>>) :: LSP xs i o -> LSP ys o p -> LSP (xs :++: ys) i p
-  (:+++) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (Either i1 i2) (Either o1 o2)
+  (:+++) ::
+    (Typeable i1, Typeable i2, Typeable o1, Typeable o2) =>
+    LSP xs i1 o1 ->
+    LSP ys i2 o2 ->
+    LSP (xs :++: ys) (Either i1 i2) (Either o1 o2)
   (:***) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (i1, i2) (o1, o2)
   LoopEither :: LSP xs (Either i k) (Either o k) -> LSP xs i o
   (:>>+) :: LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: '[o1] :++: ys) i o2
-  -- Dyn :: LSP xs (Either (LSP xs a b) a) b
+
+-- Dyn :: LSP xs (Either (LSP xs a b) a) b
 
 infixr 1 :>>>
 

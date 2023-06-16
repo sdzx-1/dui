@@ -16,6 +16,8 @@ import Control.Carrier.State.Strict (State)
 import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Labelled (HasLabelledLift, LabelledLift, lift, runLabelledLift)
 import Control.Effect.Optics (assign, modifying, preuse, use)
+import Control.Monad (void)
+import Data.Dynamic (Typeable)
 import qualified Data.IntMap as IntMap
 import Data.Kind (Type)
 import Data.Sequence (Seq (..))
@@ -25,8 +27,6 @@ import Optics (At (at), Ixed (ix), (%))
 import SP.SP
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)
-import Control.Monad (void)
-import Data.Dynamic (Typeable)
 
 readChan :: SomeSP -> ChanState -> (ChanState, Maybe SomeVal)
 readChan ssp cs@ChanState {..} = case chan of
@@ -162,7 +162,11 @@ infixr 3 &&&
 
 infixr 2 |||
 
-(|||) :: Typeable o => LSP xs i1 o -> LSP ys i2 o -> LSP (xs :++: ys) (Either i1 i2) o
+(|||) ::
+  (Typeable i1, Typeable i2, Typeable o) =>
+  LSP xs i1 o ->
+  LSP ys i2 o ->
+  LSP (xs :++: ys) (Either i1 i2) o
 l ||| r = (l :+++ r) :>>> arrLSP bothC
 
 (&&&) :: Typeable i => LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: ys) i (o1, o2)
