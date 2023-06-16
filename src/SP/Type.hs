@@ -16,6 +16,7 @@ module SP.Type where
 import Data.IntMap (IntMap)
 import Data.Kind (Constraint, Type)
 import Data.Sequence (Seq)
+import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import GHC.OldList (intercalate)
 import Optics (makeFieldLabels)
@@ -93,7 +94,7 @@ type family (:++:) (a :: [xs]) (b :: [xs]) :: [xs] where
   xs :++: ys = Reverse' (Reverse' xs '[]) ys
 
 data LSP (outputs :: [Type]) i o where
-  E :: SP i o () -> LSP '[] i o
+  E :: (Typeable i, Typeable o) => SP i o () -> LSP '[] i o
   (:>>>) :: LSP xs i o -> LSP ys o p -> LSP (xs :++: ys) i p
   (:+++) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (Either i1 i2) (Either o1 o2)
   (:***) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (i1, i2) (o1, o2)

@@ -18,17 +18,20 @@ import Control.Algebra (Has, (:+:))
 import Control.Carrier.Fresh.Strict (Fresh, fresh, runFresh)
 import Control.Carrier.State.Strict (State, modify, runState)
 import Data.Functor.Identity
-import GHC.TypeLits (Symbol)
+import qualified Data.Text as T
+import Data.Typeable (Typeable, typeOf)
+import GHC.TypeLits (KnownSymbol, Symbol)
 import SP.Gen (runLSPWithOutputs)
 import SP.SP (SP (..))
 import SP.Type
 import SP.Util
 import Shelly
 import System.IO
-import qualified Data.Text as T
+
+type OutputType = String
 
 data ChanNode
-  = CN Int
+  = CN OutputType Int
   | EitherUpCN Int
   | EitherDownCN Int
   | TupleUpCn Int
@@ -37,11 +40,27 @@ data ChanNode
   | LoopEitherUpCN Int
   | LoopEitherDownCN Int
   | Joint Int
-  deriving (Ord, Eq)
+
+instance Eq ChanNode where
+  a == b = chanNodeToInt a == chanNodeToInt b
+
+instance Ord ChanNode where
+  compare a b = compare (chanNodeToInt a) (chanNodeToInt b)
+
+chanNodeToInt :: ChanNode -> Int
+chanNodeToInt (CN _ i) = i
+chanNodeToInt (EitherUpCN i) = i
+chanNodeToInt (EitherDownCN i) = i
+chanNodeToInt (TupleUpCn i) = i
+chanNodeToInt (TupleDownCn i) = i
+chanNodeToInt (BothUpCN i) = i
+chanNodeToInt (LoopEitherUpCN i) = i
+chanNodeToInt (LoopEitherDownCN i) = i
+chanNodeToInt (Joint i) = i
 
 instance Show ChanNode where
   show = \case
-    CN i -> show i
+    CN it i -> remQ it ++ ", " ++ show i
     EitherUpCN i -> show i
     EitherDownCN i -> show i
     TupleUpCn i -> show i
@@ -51,11 +70,22 @@ instance Show ChanNode where
     LoopEitherDownCN i -> show i
     Joint i -> show i
 
+remQ :: String -> String
+remQ [] = []
+remQ ('"' : xs) = remQ xs
+remQ (x : xs) = x : remQ xs
+
 addVertex :: forall a sig m. Has (State (Graph a)) sig m => a -> m ()
 addVertex a = modify @(Graph a) (G.vertex a `G.overlay`)
 
 addEdge :: forall a sig m. Has (State (Graph a)) sig m => (a, a) -> m ()
 addEdge (a, b) = modify @(Graph a) ((G.vertex a `G.connect` G.Vertex b) `G.overlay`)
+
+getLSPInputTypeVal :: forall xs i o. Typeable i => LSP xs i o -> String
+getLSPInputTypeVal _ = show $ typeOf @i undefined
+
+getLSPOutputTypeVal :: forall xs i o. Typeable o => LSP xs i o -> String
+getLSPOutputTypeVal _ = show $ typeOf @o undefined
 
 genGraph' ::
   Has (Fresh :+: State (Graph ChanNode)) sig m =>
@@ -63,8 +93,8 @@ genGraph' ::
   LSP xs i o ->
   m ChanNode
 genGraph' i = \case
-  E _ -> do
-    i' <- CN <$> fresh
+  v@(E _) -> do
+    i' <- CN (getLSPOutputTypeVal v) <$> fresh
     addEdge @ChanNode (i, i')
     pure i'
   a :>>> b -> do
@@ -117,13 +147,14 @@ genGraph' i = \case
     genGraph' o2 b
 
 genGraph lsp =
-  fst $
-    runIdentity $
-      runState @(Graph ChanNode) (Vertex (CN 0)) $
-        runFresh 1 $
-          genGraph' (CN 0) lsp
+  let itv = getLSPInputTypeVal lsp
+   in fst $
+        runIdentity $
+          runState @(Graph ChanNode) (Vertex (CN itv 0)) $
+            runFresh 1 $
+              genGraph' (CN itv 0) lsp
 
-renderLSP :: LSP xs i o -> String
+renderLSP :: Typeable i => LSP xs i o -> String
 renderLSP lsp =
   export
     defaultStyleViaShow
@@ -152,7 +183,7 @@ renderLSP lsp =
       }
     (genGraph lsp)
 
-showLSP :: LSP xs i o -> IO ()
+showLSP :: Typeable i => LSP xs i o -> IO ()
 showLSP lsp = do
   hSetBuffering stdout LineBuffering
   shelly $ verbosely $ do
@@ -168,7 +199,7 @@ newtype DebugVal (st :: Symbol) = Val String
 instance Show (DebugVal s) where
   show (Val v) = v
 
-debug :: forall (s :: Symbol) i. Show i => LSP '[DebugVal s] i i
+debug :: forall (s :: Symbol) i. (Typeable i, Show i, KnownSymbol s) => LSP '[DebugVal s] i i
 debug = arrLSP (Val @s . show) :>>+ arrLSP id
 
 ge :: Int -> Either Int Int

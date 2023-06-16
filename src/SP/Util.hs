@@ -26,6 +26,7 @@ import SP.SP
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad (void)
+import Data.Dynamic (Typeable)
 
 readChan :: SomeSP -> ChanState -> (ChanState, Maybe SomeVal)
 readChan ssp cs@ChanState {..} = case chan of
@@ -142,29 +143,29 @@ writeVal sval o = do
   assign @EvalState (#chans % ix o) cs'
   mapM_ runningAdd msp
 
-filterLSP :: (a -> Bool) -> LSP '[] a a
+filterLSP :: (Typeable a) => (a -> Bool) -> LSP '[] a a
 filterLSP p = E (filterSP p)
 
-arrLSP :: (a -> b) -> LSP '[] a b
+arrLSP :: (Typeable a, Typeable b) => (a -> b) -> LSP '[] a b
 arrLSP f = E (arrSP f)
 
 idSP :: SP o o ()
 idSP = Get $ \x -> Put x idSP
 
-idLSP :: forall o. LSP '[] o o
+idLSP :: forall o. Typeable o => LSP '[] o o
 idLSP = E idSP
 
-arrLSPState :: s -> (s -> a -> (s, b)) -> LSP '[] a b
+arrLSPState :: (Typeable a, Typeable b) => s -> (s -> a -> (s, b)) -> LSP '[] a b
 arrLSPState s f = E (arrSPState s f)
 
 infixr 3 &&&
 
 infixr 2 |||
 
-(|||) :: LSP xs i1 o -> LSP ys i2 o -> LSP (xs :++: ys) (Either i1 i2) o
+(|||) :: Typeable o => LSP xs i1 o -> LSP ys i2 o -> LSP (xs :++: ys) (Either i1 i2) o
 l ||| r = (l :+++ r) :>>> arrLSP bothC
 
-(&&&) :: LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: ys) i (o1, o2)
+(&&&) :: Typeable i => LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: ys) i (o1, o2)
 f &&& s = arrLSP (\x -> (x, x)) :>>> (f :*** s)
 
 bothC :: Either a a -> a
@@ -192,5 +193,5 @@ putToDownstream o = lift (Put o (Return ()))
 
 type BottomSP i o sig m = HasLabelledLift (SP i o) sig m
 
-runLToLSP :: LabelledLift Lift (SP i o) a -> LSP '[] i o
+runLToLSP :: (Typeable i, Typeable o) => LabelledLift Lift (SP i o) a -> LSP '[] i o
 runLToLSP = E . runLabelledLift . void
