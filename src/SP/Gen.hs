@@ -6,7 +6,7 @@
 module SP.Gen where
 
 import Control.Algebra (Has, (:+:))
-import Control.Carrier.Fresh.Strict (fresh, runFresh)
+import Control.Carrier.Fresh.Strict (runFresh)
 import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (State, runState)
 import Control.Effect.Fresh (Fresh)
@@ -21,13 +21,7 @@ import Unsafe.Coerce (unsafeCoerce)
 genES' :: (Has (State EvalState :+: Fresh) sig m, MonadFail m) => Int -> LSP xs i o -> m ([Int], Int)
 genES' i (E sp) = do
   i' <- newCSIndex
-  index <- fresh
-  mapM_
-    runningAdd
-    [ RTSPWrapper index $
-        SomeSP $
-          SPWrapper (i, i') sp
-    ]
+  addRTSP $ SomeSP $ SPWrapper (i, i') sp
   pure ([], i')
 genES' i (lsp :>>> lsps) = do
   (ots1, i') <- genES' i lsp
@@ -36,53 +30,38 @@ genES' i (lsp :>>> lsps) = do
 genES' i ((:+++) lsp rsp) = do
   lo <- newCSIndex
   ro <- newCSIndex
-  index <- fresh
-  mapM_ runningAdd [RTSPWrapper index $ EitherUp i (lo, ro)]
+  addRTSP $ EitherUp i (lo, ro)
   (lots, lo') <- genES' lo lsp
   (rots, ro') <- genES' ro rsp
   ko <- newCSIndex
-  index1 <- fresh
-  index2 <- fresh
-  mapM_
-    runningAdd
-    [ RTSPWrapper index1 $ EitherDownLeft lo' ko,
-      RTSPWrapper index2 $ EitherDownRight ro' ko
+  addRTSPList
+    [ EitherDownLeft lo' ko,
+      EitherDownRight ro' ko
     ]
   pure (lots ++ rots, ko)
 genES' i (LoopEither lsp) = do
   i1 <- newCSIndex
-  index <- fresh
-  mapM_ runningAdd [RTSPWrapper index $ EitherDownLeft i i1]
+  addRTSP $ EitherDownLeft i i1
   (ots, o1) <- genES' i1 lsp
   leftO <- newCSIndex
-  index1 <- fresh
-  mapM_
-    runningAdd
-    [ RTSPWrapper index1 $
-        LoopEitherDown o1 (leftO, i1)
-    ]
+  addRTSP $ LoopEitherDown o1 (leftO, i1)
   pure (ots, leftO)
 genES' i (lsp :*** rsp) = do
   fsto <- newCSIndex
   sndo <- newCSIndex
-  index <- fresh
-  mapM_ runningAdd [RTSPWrapper index $ TupleUp i (fsto, sndo)]
+  addRTSP $ TupleUp i (fsto, sndo)
   (fots, fsto') <- genES' fsto lsp
   (sots, sndo') <- genES' sndo rsp
   ko <- newCSIndex
-  index1 <- fresh
-  index2 <- fresh
-  mapM_
-    runningAdd
-    [ RTSPWrapper index1 $ TupleDownFst fsto' sndo' ko,
-      RTSPWrapper index2 $ TupleDownSnd sndo' fsto' ko
+  addRTSPList
+    [ TupleDownFst fsto' sndo' ko,
+      TupleDownSnd sndo' fsto' ko
     ]
   pure (fots ++ sots, ko)
 genES' i (lsp :>>+ rsp) = do
   fsto <- newCSIndex
   sndo <- newCSIndex
-  index <- fresh
-  mapM_ runningAdd [RTSPWrapper index $ Both i (fsto, sndo)]
+  addRTSP $ Both i (fsto, sndo)
   (fots, fsto') <- genES' fsto lsp
   (sots, sndo') <- genES' sndo rsp
   pure (fots ++ [fsto'] ++ sots, sndo')
