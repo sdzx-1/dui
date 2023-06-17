@@ -20,8 +20,8 @@ eval = do
   mval <- takeOneSomeSP
   case mval of
     Nothing -> pure ()
-    Just sfun -> do
-      case sfun of
+    Just sfun@(RTSPWrapper index rtsp) -> do
+      case rtsp of
         ------------------------------------------------------------------------
         Both i (o1, o2) -> do
           readVal sfun i $ \someVal -> do
@@ -84,13 +84,13 @@ eval = do
         SomeSP (SPWrapper io@(i, o) sp) -> case sp of
           Get f -> do
             readVal sfun i $ \(SomeVal val) -> do
-              let ssp' = SomeSP $ SPWrapper io $ f (unsafeCoerce val)
+              let ssp' = RTSPWrapper index $ SomeSP $ SPWrapper io $ f (unsafeCoerce val)
               runningAdd ssp'
           Put v sp' -> do
             writeVal (SomeVal v) o
-            let sp'' = SomeSP (SPWrapper io sp')
+            let sp'' = RTSPWrapper index $ SomeSP (SPWrapper io sp')
             runningAdd sp''
-          Return a -> pure a 
+          Return a -> pure a
       eval
 
 -- run :: EvalState -> IO (EvalState, ())

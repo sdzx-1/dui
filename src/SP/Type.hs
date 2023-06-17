@@ -29,7 +29,9 @@ data SPWrapper i o = SPWrapper
 
 data SomeVal = forall a. SomeVal a
 
-data SomeSP
+data RTSPWrapper = RTSPWrapper Int RTSP
+
+data RTSP
   = forall i o. SomeSP (SPWrapper i o)
   | EitherUp Int (Int, Int)
   | EitherDownLeft Int Int
@@ -50,11 +52,11 @@ data SomeSP
 
 data ChanState = ChanState
   { chan :: Seq SomeVal,
-    waitingList :: Seq SomeSP
+    waitingList :: Seq RTSPWrapper
   }
   deriving (Generic)
 
-type RunningList = Seq SomeSP
+type RunningList = Seq RTSPWrapper
 
 data EvalState = EvalState
   { chans :: IntMap ChanState,

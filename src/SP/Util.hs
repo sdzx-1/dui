@@ -28,7 +28,7 @@ import SP.SP
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)
 
-readChan :: SomeSP -> ChanState -> (ChanState, Maybe SomeVal)
+readChan :: RTSPWrapper -> ChanState -> (ChanState, Maybe SomeVal)
 readChan ssp cs@ChanState {..} = case chan of
   Empty -> (cs {waitingList = waitingList :|> ssp}, Nothing)
   (v :<| vs) -> (cs {chan = vs}, Just v)
@@ -38,7 +38,7 @@ readChan' cs@ChanState {..} = case chan of
   Empty -> (cs, Nothing)
   (v :<| vs) -> (cs {chan = vs}, Just v)
 
-writeChan :: SomeVal -> ChanState -> (ChanState, Maybe SomeSP)
+writeChan :: SomeVal -> ChanState -> (ChanState, Maybe RTSPWrapper)
 writeChan sv cs@ChanState {..} = case waitingList of
   Empty -> (cs {chan = chan :|> sv}, Nothing)
   (sp :<| sps) ->
@@ -97,7 +97,7 @@ newCSIndex = do
   pure i
 
 takeOneSomeSP ::
-  (Has (State EvalState) sig m, MonadFail m) => m (Maybe SomeSP)
+  (Has (State EvalState) sig m, MonadFail m) => m (Maybe RTSPWrapper)
 takeOneSomeSP = do
   runs <- use @EvalState #runningList
   let (v, n) = takeOne runs
@@ -105,7 +105,7 @@ takeOneSomeSP = do
   pure v
 
 runningAdd ::
-  (Has (State EvalState) sig m, MonadFail m) => SomeSP -> m ()
+  (Has (State EvalState) sig m, MonadFail m) => RTSPWrapper -> m ()
 runningAdd ssp = modifying @_ @EvalState #runningList (:|> ssp)
 
 getChanLength ::
@@ -123,12 +123,12 @@ onlyReadVal i = do
   pure mv
 
 attochSomeSP ::
-  (Has (State EvalState) sig m, MonadFail m) => SomeSP -> Int -> m ()
+  (Has (State EvalState) sig m, MonadFail m) => RTSPWrapper -> Int -> m ()
 attochSomeSP ssp i = do
   modifying @_ @EvalState (#chans % ix i % #waitingList) (:|> ssp)
 
 readVal ::
-  (Has (State EvalState) sig m, MonadFail m) => SomeSP -> Int -> (SomeVal -> m ()) -> m ()
+  (Has (State EvalState) sig m, MonadFail m) => RTSPWrapper -> Int -> (SomeVal -> m ()) -> m ()
 readVal ssp i handler = do
   Just cs <- preuse @EvalState (#chans % ix i)
   let (cs', mv) = readChan ssp cs
