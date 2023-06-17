@@ -31,6 +31,9 @@ data SomeVal = forall a. SomeVal a
 
 data RTSPWrapper = RTSPWrapper Int RTSP
 
+extraIndex :: RTSPWrapper -> Int
+extraIndex (RTSPWrapper i _ ) = i
+
 data RTSP
   = forall i o. SomeSP (SPWrapper i o)
   | EitherUp Int (Int, Int)

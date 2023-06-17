@@ -105,14 +105,15 @@ takeOneSomeSP = do
   pure v
 
 addRTSP ::
-  (Has (State EvalState :+: Fresh) sig m, MonadFail m) => RTSP -> m ()
+  (Has (State EvalState :+: Fresh) sig m, MonadFail m) => RTSP -> m Int
 addRTSP rtsp = do
   index <- fresh
   modifying @_ @EvalState #runningList (:|> RTSPWrapper index rtsp)
+  pure index
 
 addRTSPList ::
-  (Has (State EvalState :+: Fresh) sig m, MonadFail m) => [RTSP] -> m ()
-addRTSPList = mapM_ addRTSP
+  (Has (State EvalState :+: Fresh) sig m, MonadFail m) => [RTSP] -> m [Int]
+addRTSPList = mapM addRTSP
 
 runningAdd ::
   (Has (State EvalState) sig m, MonadFail m) => RTSPWrapper -> m ()
