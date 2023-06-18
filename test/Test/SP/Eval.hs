@@ -8,19 +8,17 @@ module Test.SP.Eval where
 
 import Control.Algebra (Has)
 import Control.Carrier.State.Strict (runState)
-import Control.Effect.Labelled (HasLabelledLift, lift)
 import Control.Effect.State (State)
 import qualified Control.Effect.State as S
 import Control.Monad (forever)
 import Data.Function ((&))
 import Data.List (foldl')
-import SP.Gen
 import SP.SP (SP (..))
 import SP.Type
 import SP.Util
-import qualified SP.Util as SP
 import Test.QuickCheck (Arbitrary (arbitrary))
 import Data.Typeable (Typeable)
+import SP.Eval (runLSP, runLSPWithOutputs)
 
 data TestEnv = TestEnv [Int] [Int -> Int]
 

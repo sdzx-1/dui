@@ -1,13 +1,21 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
 module SP.Eval where
 
-import Control.Algebra (Has)
+import Control.Algebra (Has, (:+:))
+import Control.Carrier.Fresh.Strict (Fresh, runFresh)
 import Control.Carrier.Lift (runM)
-import Control.Carrier.State.Strict (runState)
+import Control.Carrier.State.Strict (get, runState)
 import Control.Effect.State (State)
+import Control.Monad (forM)
+import qualified Data.Map as Map
+import GHC.Exts (toList)
+import Optics (Ixed (ix), (%), (^?))
+import SP.Gen
 import SP.SP (SP (..))
 import SP.Type
 import SP.Util
@@ -15,13 +23,17 @@ import Unsafe.Coerce (unsafeCoerce)
 
 --------------------------------------------------------------------
 
-eval :: (Has (State EvalState) sig m, MonadFail m) => m ()
+eval :: (Has (State EvalState :+: State DynMap :+: Fresh) sig m, MonadFail m) => m ()
 eval = do
   mval <- takeOneSomeSP
   case mval of
     Nothing -> pure ()
     Just sfun@(RTSPWrapper index rtsp) -> do
       case rtsp of
+        DynSP dysps@(DynSPState i _ _) (Action f) -> do
+          readVal sfun i $ \(SomeVal a) -> do
+            f dysps (unsafeCoerce a)
+            runningAdd sfun
         ------------------------------------------------------------------------
         Both i (o1, o2) -> do
           readVal sfun i $ \someVal -> do
@@ -93,9 +105,39 @@ eval = do
           Return a -> pure a
       eval
 
--- run :: EvalState -> IO (EvalState, ())
-run :: MonadFail m => EvalState -> m EvalState
-run es = fst <$> runM (runState @EvalState es eval)
+genESMaybe :: [i] -> LSP xs i o -> Maybe (EvalState, (DynMap, (Int, GenResult)))
+genESMaybe ls lsp =
+  runM $
+    runState @EvalState (initEvalState ls) $
+      runState @DynMap Map.empty $
+        runFresh 1 (genES' 0 lsp)
 
-runMaybe :: EvalState -> Maybe EvalState
-runMaybe es = fst <$> runM (runState @EvalState es eval)
+genESAndRun :: [i] -> LSP xs i o -> Maybe (EvalState, (DynMap, (Int, GenResult)))
+genESAndRun ls lsp =
+  runM $
+    runState @EvalState (initEvalState ls) $
+      runState @DynMap Map.empty $
+        runFresh 1 $ do
+          res <- genES' 0 lsp
+          eval
+          pure res
+
+runLSP :: [i] -> LSP xs i o -> Maybe [o]
+runLSP ls lsp = do
+  genESArrest lsp
+  (es, (_, (_, GenResult _ i _ _ _))) <- genESAndRun ls lsp
+  os <- es ^? (#chans % ix i % #chan)
+  pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList os))
+
+runLSPWithOutputs ::
+  SomeValsToHList outputs =>
+  [i] ->
+  LSP outputs i o ->
+  Maybe (HList outputs, [o])
+runLSPWithOutputs ls lsp = do
+  genESArrest lsp
+  (es, (_, (_, GenResult outputIndexList i _ _ _))) <- genESAndRun ls lsp
+  os <- es ^? (#chans % ix i % #chan)
+  let o = fmap (\(SomeVal a) -> unsafeCoerce a) (toList os)
+  outputSomeValList <- forM outputIndexList $ \i -> es ^? (#chans % ix i % #chan)
+  pure (someValsToHList outputSomeValList, o)

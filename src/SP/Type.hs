@@ -5,6 +5,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -13,8 +14,12 @@
 
 module SP.Type where
 
+import Control.Algebra (Has, (:+:))
+import Control.Carrier.State.Strict (State)
+import Control.Effect.Fresh (Fresh)
 import Data.IntMap (IntMap)
 import Data.Kind (Constraint, Type)
+import Data.Map (Map)
 import Data.Sequence (Seq)
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
@@ -32,26 +37,43 @@ data SomeVal = forall a. SomeVal a
 data RTSPWrapper = RTSPWrapper Int RTSP
 
 extraIndex :: RTSPWrapper -> Int
-extraIndex (RTSPWrapper i _ ) = i
+extraIndex (RTSPWrapper i _) = i
 
-data RTSP
-  = forall i o. SomeSP (SPWrapper i o)
-  | EitherUp Int (Int, Int)
-  | EitherDownLeft Int Int
-  | EitherDownRight Int Int
-  | TupleUp Int (Int, Int)
-  | TupleDownFst
-      { soureIndex :: Int,
-        otherIndex :: Int,
-        targeIndex :: Int
-      }
-  | TupleDownSnd
-      { soureIndex :: Int,
-        otherIndex :: Int,
-        targeIndex :: Int
-      }
-  | Both Int (Int, Int)
-  | LoopEitherDown Int (Int, Int)
+data RTSP where
+  SomeSP :: (SPWrapper i o) -> RTSP
+  EitherUp :: Int -> (Int, Int) -> RTSP
+  EitherDownLeft :: Int -> Int -> RTSP
+  EitherDownRight :: Int -> Int -> RTSP
+  TupleUp :: Int -> (Int, Int) -> RTSP
+  TupleDownFst ::
+    { soureIndex :: Int,
+      otherIndex :: Int,
+      targeIndex :: Int
+    } ->
+    RTSP
+  TupleDownSnd ::
+    { soureIndex :: Int,
+      otherIndex :: Int,
+      targeIndex :: Int
+    } ->
+    RTSP
+  Both :: Int -> (Int, Int) -> RTSP
+  LoopEitherDown :: Int -> (Int, Int) -> RTSP
+  DynSP ::
+    DynSPState ->
+    Action ->
+    RTSP
+
+newtype Action = Action
+  { runAction ::
+      forall a b m sig.
+      ( MonadFail m,
+        Has (State EvalState :+: State DynMap :+: Fresh) sig m
+      ) =>
+      DynSPState ->
+      Either (LSP '[] a b) a ->
+      m ()
+  }
 
 data ChanState = ChanState
   { chan :: Seq SomeVal,
@@ -66,9 +88,6 @@ data EvalState = EvalState
     runningList :: RunningList
   }
   deriving (Generic)
-
-makeFieldLabels ''ChanState
-makeFieldLabels ''EvalState
 
 data HList (xs :: [Type]) where
   (:>) :: [x] -> HList xs -> HList (x ': xs)
@@ -123,8 +142,7 @@ data LSP (outputs :: [Type]) i o where
     LSP xs i o1 ->
     LSP ys i o2 ->
     LSP (xs :++: '[o1] :++: ys) i o2
-
--- Dyn :: LSP xs (Either (LSP xs a b) a) b
+  Dyn :: LSP '[] (Either (LSP '[] a b) a) b
 
 infixr 1 :>>>
 
@@ -142,3 +160,31 @@ instance Show (LSP xs i o) where
     (a :*** b) -> "((" ++ show a ++ ") *** (" ++ show b ++ "))"
     (LoopEither lsp) -> "[LoopEither " ++ show lsp ++ "]"
     (a :>>+ b) -> "((" ++ show a ++ ") :>+ (" ++ show b ++ "))"
+    Dyn -> " Dyn "
+
+newtype DynSpecialNum = DynSpecialNum Int deriving (Show, Eq, Ord)
+
+data DynSPState = DynSPState
+  { upstreamChan :: Int,
+    downstreamChan :: Int,
+    dynSpecialNum :: DynSpecialNum
+  }
+  deriving (Generic)
+
+data SomeLSP = forall a b. SomeLSP (LSP '[] a b)
+
+type DynMap = Map DynSpecialNum LSPGenState
+
+data LSPGenState = LspGenState
+  { lspSource :: SomeLSP,
+    startChanIndex :: Int,
+    allRTSPIndexs :: [Int],
+    allChanIndexs :: [Int],
+    allDynSpecialNum :: [DynSpecialNum]
+  }
+  deriving (Generic)
+
+makeFieldLabels ''ChanState
+makeFieldLabels ''EvalState
+makeFieldLabels ''LSPGenState
+makeFieldLabels ''DynSPState

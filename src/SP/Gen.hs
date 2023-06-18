@@ -1,23 +1,26 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 module SP.Gen where
 
 import Control.Algebra (Has, (:+:))
-import Control.Carrier.Fresh.Strict (runFresh)
+import Control.Carrier.Fresh.Strict (fresh, runFresh)
 import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (State, runState)
 import Control.Effect.Fresh (Fresh)
-import Control.Monad (forM)
+import Control.Effect.Optics (assign, modifying, preuse)
+import Control.Monad (forM_)
+import qualified Data.IntMap as IntMap
 import Data.List (sort)
+import qualified Data.Sequence as Seq
 import GHC.Exts (IsList (toList))
-import Optics (Ixed (ix), (%), (^.), (^?))
-import SP.Eval
+import Optics (At (at), Ixed (ix), (%), (^.))
 import SP.Type
 import SP.Util
-import Unsafe.Coerce (unsafeCoerce)
 
 data GenResult = GenResult
   { -- | all (:>>+) First Branch ChanState index collects
@@ -25,7 +28,11 @@ data GenResult = GenResult
     -- | LSP output ChanState index
     lspOI :: Int,
     -- | all RTSP index list
-    allRTSPI :: [Int]
+    allRTSPI :: [Int],
+    -- | all ChanState index list
+    allCSI :: [Int],
+    -- | all Dyn Special Num list
+    allDynSN :: [DynSpecialNum]
   }
 
 genES' ::
@@ -38,51 +45,83 @@ genES' ::
 genES' i (E sp) = do
   i' <- newCSIndex
   index <- addRTSP $ SomeSP $ SPWrapper (i, i') sp
-  pure $ GenResult [] i' [index]
+  pure $ GenResult [] i' [index] [i'] []
 genES' i (lsp :>>> lsps) = do
-  GenResult ots1 i' i1s <- genES' i lsp
-  GenResult ots2 i'' i2s <- genES' i' lsps
-  pure $ GenResult (ots1 ++ ots2) i'' (i1s ++ i2s)
+  GenResult ots1 i' i1s c1s d1s <- genES' i lsp
+  GenResult ots2 i'' i2s c2s d2s <- genES' i' lsps
+  pure $ GenResult (ots1 ++ ots2) i'' (i1s ++ i2s) (c1s ++ c2s) (d1s ++ d2s)
 genES' i ((:+++) lsp rsp) = do
   lo <- newCSIndex
   ro <- newCSIndex
   ie <- addRTSP $ EitherUp i (lo, ro)
-  GenResult lots lo' i1s <- genES' lo lsp
-  GenResult rots ro' i2s <- genES' ro rsp
+  GenResult lots lo' i1s c1s d1s <- genES' lo lsp
+  GenResult rots ro' i2s c2s d2s <- genES' ro rsp
   ko <- newCSIndex
   ies <-
     addRTSPList
       [ EitherDownLeft lo' ko,
         EitherDownRight ro' ko
       ]
-  pure $ GenResult (lots ++ rots) ko (i1s ++ i2s ++ [ie] ++ ies)
+  pure $
+    GenResult
+      (lots ++ rots)
+      ko
+      (i1s ++ i2s ++ [ie] ++ ies)
+      (c1s ++ c2s ++ [lo, ro, ko])
+      (d1s ++ d2s)
 genES' i (LoopEither lsp) = do
   i1 <- newCSIndex
   il <- addRTSP $ EitherDownLeft i i1
-  GenResult ots o1 is <- genES' i1 lsp
+  GenResult ots o1 is c1s d1s <- genES' i1 lsp
   leftO <- newCSIndex
   ill <- addRTSP $ LoopEitherDown o1 (leftO, i1)
-  pure $ GenResult ots leftO (is ++ [il, ill])
+  pure $ GenResult ots leftO (is ++ [il, ill]) (c1s ++ [i1, leftO]) d1s
 genES' i (lsp :*** rsp) = do
   fsto <- newCSIndex
   sndo <- newCSIndex
   it <- addRTSP $ TupleUp i (fsto, sndo)
-  GenResult fots fsto' i1s <- genES' fsto lsp
-  GenResult sots sndo' i2s <- genES' sndo rsp
+  GenResult fots fsto' i1s c1s d1s <- genES' fsto lsp
+  GenResult sots sndo' i2s c2s d2s <- genES' sndo rsp
   ko <- newCSIndex
   its <-
     addRTSPList
       [ TupleDownFst fsto' sndo' ko,
         TupleDownSnd sndo' fsto' ko
       ]
-  pure $ GenResult (fots ++ sots) ko (i1s ++ i2s ++ [it] ++ its)
+  pure $
+    GenResult
+      (fots ++ sots)
+      ko
+      (i1s ++ i2s ++ [it] ++ its)
+      (c1s ++ c2s ++ [fsto, sndo, ko])
+      (d1s ++ d2s)
 genES' i (lsp :>>+ rsp) = do
   fsto <- newCSIndex
   sndo <- newCSIndex
   ib <- addRTSP $ Both i (fsto, sndo)
-  GenResult fots fsto' i1s <- genES' fsto lsp
-  GenResult sots sndo' i2s <- genES' sndo rsp
-  pure $ GenResult (fots ++ [fsto'] ++ sots) sndo' (i1s ++ i2s ++ [ib])
+  GenResult fots fsto' i1s c1s d1s <- genES' fsto lsp
+  GenResult sots sndo' i2s c2s d2s <- genES' sndo rsp
+  pure $
+    GenResult
+      (fots ++ [fsto'] ++ sots)
+      sndo'
+      (i1s ++ i2s ++ [ib])
+      (c1s ++ c2s ++ [fsto, sndo])
+      (d1s ++ d2s)
+genES' i Dyn = do
+  o <- newCSIndex
+  sn <- DynSpecialNum <$> fresh
+  index <-
+    addRTSP $
+      DynSP
+        ( DynSPState
+            { upstreamChan = i,
+              downstreamChan = o,
+              dynSpecialNum = sn
+            }
+        )
+        (Action dynSP)
+  pure $ GenResult [] o [index] [o] [sn]
 
 genES :: MonadFail m => [i] -> LSP xs i o -> m (EvalState, (Int, GenResult))
 genES ls lsp =
@@ -92,36 +131,85 @@ genES ls lsp =
 
 genESArrest :: MonadFail m => LSP xs i o -> m ()
 genESArrest lsp = do
-  (es, (_, GenResult _ _ ls)) <- genES [] lsp
-  let chans = map extraIndex $ toList $ es ^. #runningList
-  if sort chans == sort ls
+  (es, (_, GenResult _ _ ls css _)) <- genES [] lsp
+  let spIndexs = map extraIndex $ toList $ es ^. #runningList
+      chans = map fst $ IntMap.toList $ es ^. #chans
+  if (sort spIndexs == sort ls) && (sort chans == sort (0 : css))
     then pure ()
-    else error $ "generate lsp to EvalState error: " ++ show (chans, ls)
+    else
+      error $
+        "generate lsp to EvalState error: "
+          ++ show (spIndexs, ls)
+          ++ show (chans, 0 : css)
 
-genESMaybe :: [i] -> LSP xs i o -> Maybe (EvalState, (Int, GenResult))
-genESMaybe ls lsp =
-  runM $
-    runState @EvalState (initEvalState ls) $
-      runFresh 1 (genES' 0 lsp)
+-------------------------------------------------------
 
-runLSP :: [i] -> LSP xs i o -> Maybe [o]
-runLSP ls lsp = do
-  genESArrest lsp
-  (a, (_, GenResult _ i _)) <- genESMaybe ls lsp
-  es <- runMaybe a
-  os <- es ^? (#chans % ix i % #chan)
-  pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList os))
+dynSP ::
+  forall a b sig m.
+  ( MonadFail m,
+    Has (State EvalState :+: State DynMap :+: Fresh) sig m
+  ) =>
+  DynSPState ->
+  Either (LSP '[] a b) a ->
+  m ()
+dynSP dys@(DynSPState _ _downc dsn) upVal = do
+  mst <- preuse @DynMap (ix dsn)
+  case upVal of
+    Right a -> case mst of
+      Nothing -> pure ()
+      Just (LspGenState _ si _ _ _) -> writeVal (SomeVal a) si
+    Left lsp -> do
+      case mst of
+        Just _ -> do
+          -- rec remove exit dyn lsp
+          -- need wait all chanstate empty??
+          recRemoveDynSP dsn
+          -- gen lsp
+          dynGenLSP dys lsp
+        Nothing -> do
+          -- gen lsp
+          dynGenLSP dys lsp
 
-runLSPWithOutputs ::
-  SomeValsToHList outputs =>
-  [i] ->
-  LSP outputs i o ->
-  Maybe (HList outputs, [o])
-runLSPWithOutputs ls lsp = do
-  genESArrest lsp
-  (a, (_, GenResult outputIndexList i _)) <- genESMaybe ls lsp
-  es <- runMaybe a
-  os <- es ^? (#chans % ix i % #chan)
-  let o = fmap (\(SomeVal a) -> unsafeCoerce a) (toList os)
-  outputSomeValList <- forM outputIndexList $ \i -> es ^? (#chans % ix i % #chan)
-  pure (someValsToHList outputSomeValList, o)
+recRemoveDynSP ::
+  ( MonadFail m,
+    Has (State EvalState :+: State DynMap) sig m
+  ) =>
+  DynSpecialNum ->
+  m ()
+recRemoveDynSP dsn = do
+  mst <- preuse @DynMap (ix dsn)
+  case mst of
+    Nothing -> pure ()
+    Just (LspGenState _ _ artspis acis aadsns) -> do
+      -- running list remove
+      modifying @_ @EvalState
+        #runningList
+        (Seq.filter (\(RTSPWrapper i _) -> i `notElem` artspis))
+      -- ChanState Map remvoe
+      forM_ acis $ \i ->
+        assign @EvalState (#chans % at i) Nothing
+      -- rec remvoe Dyn
+      assign @DynMap (at dsn) Nothing
+      mapM_ recRemoveDynSP aadsns
+
+dynGenLSP ::
+  forall a b sig m.
+  ( MonadFail m,
+    Has (State EvalState :+: State DynMap :+: Fresh) sig m
+  ) =>
+  DynSPState ->
+  LSP '[] a b ->
+  m ()
+dynGenLSP (DynSPState _ dci dsn) lsp = do
+  ici <- newCSIndex
+  GenResult [] lspOI allRTSPI allCSI dspn <- genES' ici lsp
+  idx <- addRTSP $ SomeSP $ SPWrapper (lspOI, dci) idSP
+  assign @DynMap (at dsn) $
+    Just
+      LspGenState
+        { lspSource = SomeLSP lsp,
+          startChanIndex = ici,
+          allRTSPIndexs = allRTSPI ++ [idx],
+          allChanIndexs = allCSI ++ [ici],
+          allDynSpecialNum = dspn
+        }

@@ -21,7 +21,7 @@ import Data.Functor.Identity
 import qualified Data.Text as T
 import Data.Typeable (Typeable, typeOf)
 import GHC.TypeLits (KnownSymbol, Symbol)
-import SP.Gen (runLSPWithOutputs)
+import SP.Eval (runLSPWithOutputs)
 import SP.SP (SP (..))
 import SP.Type
 import SP.Util
@@ -39,6 +39,7 @@ data ChanNode
   | BothUpCN OutputType Int
   | LoopEitherUpCN OutputType Int
   | LoopEitherDownCN OutputType Int
+  | DynCN Int
   | Joint Int
   deriving (Show)
 
@@ -58,6 +59,7 @@ chanNodeToInt (BothUpCN _ i) = i
 chanNodeToInt (LoopEitherUpCN _ i) = i
 chanNodeToInt (LoopEitherDownCN _ i) = i
 chanNodeToInt (Joint i) = i
+chanNodeToInt (DynCN i) = i
 
 toName :: ChanNode -> String
 toName = \case
@@ -70,6 +72,7 @@ toName = \case
   LoopEitherUpCN _ i -> show i
   LoopEitherDownCN _ i -> show i
   Joint i -> show i
+  DynCN i -> show i
 
 remQ :: String -> String
 remQ [] = []
@@ -157,6 +160,10 @@ genGraph' i = \case
     addEdge @ChanNode (joint, o2)
     genGraph' o1 a
     genGraph' o2 b
+  Dyn -> do
+    o <- DynCN <$> fresh
+    addEdge @ChanNode (i, o)
+    pure o
 
 genGraph lsp =
   let itv = getLSPInputTypeVal lsp
@@ -180,7 +187,8 @@ renderLSP lsp =
           LoopEitherUpCN ot _ -> ["color" := "purple", "label" := remQ ot]
           LoopEitherDownCN ot _ -> ["color" := "purple", "label" := remQ ot]
           Joint _ -> ["shape" := "point", "style" := "filled", "label" := "", "width" := "0", "height" := "0"]
-          CN ot _ -> ["color" := "black", "label" := remQ ot],
+          CN ot _ -> ["color" := "black", "label" := remQ ot]
+          DynCN _ -> ["color" := "black", "label" := "{Dyn}"],
         edgeAttributes = \x y -> case (x, y) of
           (_, EitherUpCN _ _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
           (_, EitherDownCN _ _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
@@ -190,7 +198,8 @@ renderLSP lsp =
           (_, LoopEitherUpCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, LoopEitherDownCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, Joint _) -> ["dir" := "none", "style" := "dashed"]
-          (_, CN _ _) -> ["color" := "black"],
+          (_, CN _ _) -> ["color" := "black"]
+          (_, DynCN _) -> ["color" := "black"],
         defaultVertexAttributes = ["shape" := "plaintext"]
       }
     (genGraph lsp)
