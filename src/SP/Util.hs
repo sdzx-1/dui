@@ -1,10 +1,13 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -201,6 +204,10 @@ instance SomeValsToHList '[] where
 instance (SomeValsToHList xs) => SomeValsToHList (x ': xs) where
   someValsToHList (x : xs) = map (\(SomeVal a) -> unsafeCoerce a) (toList x) :> someValsToHList xs
   someValsToHList [] = error "length error"
+
+hLenght :: HList xs -> Int
+hLenght Nil = 0
+hLenght (_ :> xs) = 1 + hLenght xs
 
 getFromUpstream ::
   HasLabelledLift (SP i o) sig m => m i

@@ -19,3 +19,5 @@ main = hspec $ do
       property $ \x ls -> prop_fun4 x ls
     it "test LoopEither " $ do
       testls `shouldBe` True
+    it "test Dyn " $ do
+      pv `shouldBe` True

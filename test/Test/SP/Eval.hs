@@ -7,18 +7,19 @@
 module Test.SP.Eval where
 
 import Control.Algebra (Has)
-import Control.Carrier.State.Strict (runState)
+import Control.Carrier.State.Strict (modify, runState)
 import Control.Effect.State (State)
 import qualified Control.Effect.State as S
-import Control.Monad (forever)
+import Control.Monad (forever, when)
 import Data.Function ((&))
 import Data.List (foldl')
+import Data.Typeable (Typeable)
+import Data.Void (Void)
+import SP.Eval (runLSP, runLSPWithOutputs)
 import SP.SP (SP (..))
 import SP.Type
 import SP.Util
 import Test.QuickCheck (Arbitrary (arbitrary))
-import Data.Typeable (Typeable)
-import SP.Eval (runLSP, runLSPWithOutputs)
 
 data TestEnv = TestEnv [Int] [Int -> Int]
 
@@ -139,3 +140,51 @@ testL i =
    in (i : res) == bbSeq i
 
 testls = all testL [5 .. 16]
+
+data Finish = Finish
+
+ct ::
+  ( Has (State Int) sig m,
+    BottomSP Int (Either Int Finish) sig m
+  ) =>
+  m ()
+ct = forever $ do
+  x <- getFromUpstream
+  modify @Int (+ 1)
+  putToDownstream (Left x)
+  i <- S.get @Int
+  when (i == 3) $ do
+    putToDownstream (Right Finish)
+    S.put @Int 0
+
+ch ::
+  ( BottomSP
+      (Either Void Finish)
+      (Either (LSP '[] Int Int) Int)
+      sig
+      m
+  ) =>
+  m ()
+ch = do
+  putToDownstream $ Left (arrLSP (+ 1))
+  putToDownstream $ Right 1
+  putToDownstream $ Right 2
+  putToDownstream $ Right 3
+  res <- getFromUpstream
+  case res of
+    Right Finish -> pure ()
+    _ -> error "never happened"
+  putToDownstream $ Left (arrLSP (+ 1000))
+  putToDownstream $ Right 1
+  putToDownstream $ Right 2
+  putToDownstream $ Right 3
+  res <- getFromUpstream
+  case res of
+    Right Finish -> pure ()
+    _ -> error "never happened"
+
+pp1 = LoopEither (runLToLSP ch :>>> Dyn :>>> runLToLSP (runState @Int 0 ct))
+
+pv =
+  let Just (_, v) = runLSPWithOutputs [] pp1
+   in v == [2, 3, 4, 1001, 1002, 1003]
