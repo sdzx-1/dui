@@ -108,14 +108,14 @@ takeOneSomeSP = do
   pure v
 
 addRTSP ::
-  (Has (State EvalState :+: Fresh) sig m, MonadFail m) => RTSP -> m Int
+  (Has (State EvalState :+: Fresh) sig m, MonadFail m) => RTSP -> m RTSPIndex
 addRTSP rtsp = do
-  index <- fresh
+  index <- RTSPIndex <$> fresh
   modifying @_ @EvalState #runningList (:|> RTSPWrapper index rtsp)
   pure index
 
 addRTSPList ::
-  (Has (State EvalState :+: Fresh) sig m, MonadFail m) => [RTSP] -> m [Int]
+  (Has (State EvalState :+: Fresh) sig m, MonadFail m) => [RTSP] -> m [RTSPIndex]
 addRTSPList = mapM addRTSP
 
 runningAdd ::
@@ -221,6 +221,3 @@ type BottomSP i o sig m = HasLabelledLift (SP i o) sig m
 
 runLToLSP :: (Typeable i, Typeable o) => LabelledLift Lift (SP i o) a -> LSP '[] i o
 runLToLSP = E . runLabelledLift . void
-
--- getEvalState :: LSP '[EvalState] a a
--- getEvalState = undefined

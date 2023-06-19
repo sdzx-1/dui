@@ -26,7 +26,7 @@ data GenResult = GenResult
     -- | LSP output ChanState index
     lspOI :: ChanIndex,
     -- | all RTSP index list
-    allRTSPI :: [Int],
+    allRTSPI :: [RTSPIndex],
     -- | all ChanState index list
     allCSI :: [ChanIndex],
     -- | all Dyn Special Num list

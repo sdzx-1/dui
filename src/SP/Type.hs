@@ -38,6 +38,14 @@ chanIndexToInt (ChanIndex i) = i
 intToChanIndex :: Int -> ChanIndex
 intToChanIndex = ChanIndex
 
+newtype RTSPIndex = RTSPIndex Int deriving (Eq)
+
+rTSPIndexToInt :: RTSPIndex -> Int
+rTSPIndexToInt (RTSPIndex i) = i
+
+intToRTSPIndex :: Int -> RTSPIndex
+intToRTSPIndex = RTSPIndex
+
 data SPWrapper i o = SPWrapper
   { ioIndex :: (ChanIndex, ChanIndex),
     sp :: SP i o ()
@@ -45,10 +53,10 @@ data SPWrapper i o = SPWrapper
 
 data SomeVal = forall a. SomeVal a
 
-data RTSPWrapper = RTSPWrapper Int RTSP
+data RTSPWrapper = RTSPWrapper RTSPIndex RTSP
 
 extraIndex :: RTSPWrapper -> Int
-extraIndex (RTSPWrapper i _) = i
+extraIndex (RTSPWrapper i _) = rTSPIndexToInt i
 
 data RTSP where
   SomeSP :: (SPWrapper i o) -> RTSP
@@ -208,7 +216,7 @@ type DynMap = Map DynSpecialNum LSPGenState
 data LSPGenState = LspGenState
   { lspSource :: SomeLSP,
     startChanIndex :: ChanIndex,
-    allRTSPIndexs :: [Int],
+    allRTSPIndexs :: [RTSPIndex],
     allChanIndexs :: [ChanIndex],
     allDynSpecialNum :: [DynSpecialNum]
   }
