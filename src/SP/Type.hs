@@ -28,6 +28,7 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import GHC.OldList (intercalate)
 import Optics (makeFieldLabels)
+import SP.ESP
 import SP.SP
 
 newtype ChanIndex = ChanIndex Int
@@ -153,7 +154,7 @@ type family (:++:) (a :: [xs]) (b :: [xs]) :: [xs] where
   xs :++: ys = Reverse' (Reverse' xs '[]) ys
 
 data LSP (outputs :: [Type]) i o where
-  E :: (Typeable i, Typeable o) => SP i o () -> LSP '[] i o
+  L :: (Typeable i, Typeable o) => SP i o () -> LSP '[] i o
   (:>>>) :: LSP xs i o -> LSP ys o p -> LSP (xs :++: ys) i p
   (:+++) ::
     (Typeable i1, Typeable i2, Typeable o1, Typeable o2) =>
@@ -179,6 +180,7 @@ data LSP (outputs :: [Type]) i o where
     LSP (xs :++: '[o1] :++: ys) i o2
   Dyn :: HListLength xs => LSP xs (Either (LSP xs a b) a) b
   DebugRt :: LSP '[EvalState] a a
+  E :: (Typeable i, Typeable o) => ESP i o () -> LSP '[] i o
 
 infixr 1 :>>>
 
@@ -190,7 +192,7 @@ infixr 2 :+++
 
 instance Show (LSP xs i o) where
   show = \case
-    E _ -> "*"
+    L _ -> "*"
     (a :>>> b) -> show a ++ " -> " ++ show b
     (a :+++ b) -> "((" ++ show a ++ ") +++ (" ++ show b ++ "))"
     (a :*** b) -> "((" ++ show a ++ ") *** (" ++ show b ++ "))"
@@ -198,6 +200,7 @@ instance Show (LSP xs i o) where
     (a :>>+ b) -> "((" ++ show a ++ ") :>+ (" ++ show b ++ "))"
     Dyn -> " Dyn "
     DebugRt -> " DebugRt "
+    E _ -> " ** "
 
 newtype DynSpecialNum = DynSpecialNum Int deriving (Show, Eq, Ord)
 

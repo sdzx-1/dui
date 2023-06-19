@@ -40,7 +40,7 @@ genES' ::
   ChanIndex ->
   LSP xs i o ->
   m GenResult
-genES' i (E sp) = do
+genES' i (L sp) = do
   i' <- newCSIndex
   index <- addRTSP $ SomeSP $ SPWrapper (i, i') sp
   pure $ GenResult [] i' [index] [i'] []

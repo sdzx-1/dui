@@ -100,7 +100,7 @@ genGraph' ::
   LSP xs i o ->
   m ChanNode
 genGraph' i = \case
-  v@(E _) -> do
+  v@(L _) -> do
     i' <- CN (getLSPOutputTypeVal v) <$> fresh
     addEdge @ChanNode (i, i')
     pure i'
@@ -271,5 +271,5 @@ lp =
         :>>> ( (arrLSP (\x -> x * 3 + 1) :>>> debug @"v2")
                  ||| arrLSP (`div` 2)
              )
-        :>>> E (cvsp [])
+        :>>> L (cvsp [])
     )

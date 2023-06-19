@@ -158,19 +158,19 @@ writeVal sval o = do
   mapM_ runningAdd msp
 
 filterLSP :: (Typeable a) => (a -> Bool) -> LSP '[] a a
-filterLSP p = E (filterSP p)
+filterLSP p = L (filterSP p)
 
 arrLSP :: (Typeable a, Typeable b) => (a -> b) -> LSP '[] a b
-arrLSP f = E (arrSP f)
+arrLSP f = L (arrSP f)
 
 idSP :: SP o o ()
 idSP = Get $ \x -> Put x idSP
 
 idLSP :: forall o. Typeable o => LSP '[] o o
-idLSP = E idSP
+idLSP = L idSP
 
 arrLSPState :: (Typeable a, Typeable b) => s -> (s -> a -> (s, b)) -> LSP '[] a b
-arrLSPState s f = E (arrSPState s f)
+arrLSPState s f = L (arrSPState s f)
 
 infixr 3 &&&
 
@@ -220,4 +220,4 @@ putToDownstream o = lift (Put o (Return ()))
 type BottomSP i o sig m = HasLabelledLift (SP i o) sig m
 
 runLToLSP :: (Typeable i, Typeable o) => LabelledLift Lift (SP i o) a -> LSP '[] i o
-runLToLSP = E . runLabelledLift . void
+runLToLSP = L . runLabelledLift . void
