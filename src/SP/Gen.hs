@@ -125,6 +125,11 @@ genES' i (Dyn :: LSP xs i o) = do
         )
         (Action dynSP)
   pure $ GenResult os o [index] (o : os) [sn]
+genES' i DebugRt = do
+  o <- newCSIndex
+  output <- newCSIndex
+  index <- addRTSP $ DebugRtSP output i o
+  pure $ GenResult [output] o [index] (o : [output]) []
 
 genES :: MonadFail m => [i] -> LSP xs i o -> m (EvalState, (Int, GenResult))
 genES ls lsp =

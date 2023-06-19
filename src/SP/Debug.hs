@@ -40,6 +40,7 @@ data ChanNode
   | LoopEitherUpCN OutputType Int
   | LoopEitherDownCN OutputType Int
   | DynCN Int
+  | DebugRtCN Int
   | Joint Int
   deriving (Show)
 
@@ -60,6 +61,7 @@ chanNodeToInt (LoopEitherUpCN _ i) = i
 chanNodeToInt (LoopEitherDownCN _ i) = i
 chanNodeToInt (Joint i) = i
 chanNodeToInt (DynCN i) = i
+chanNodeToInt (DebugRtCN i) = i
 
 toName :: ChanNode -> String
 toName = \case
@@ -73,6 +75,7 @@ toName = \case
   LoopEitherDownCN _ i -> show i
   Joint i -> show i
   DynCN i -> show i
+  DebugRtCN i -> show i
 
 remQ :: String -> String
 remQ [] = []
@@ -164,6 +167,10 @@ genGraph' i = \case
     o <- DynCN <$> fresh
     addEdge @ChanNode (i, o)
     pure o
+  DebugRt -> do
+    o <- DebugRtCN <$> fresh
+    addEdge @ChanNode (i, o)
+    pure o
 
 genGraph lsp =
   let itv = getLSPInputTypeVal lsp
@@ -188,7 +195,8 @@ renderLSP lsp =
           LoopEitherDownCN ot _ -> ["color" := "purple", "label" := remQ ot]
           Joint _ -> ["shape" := "point", "style" := "filled", "label" := "", "width" := "0", "height" := "0"]
           CN ot _ -> ["color" := "black", "label" := remQ ot]
-          DynCN _ -> ["color" := "black", "label" := "{Dyn}"],
+          DynCN _ -> ["color" := "black", "label" := "{Dyn}"]
+          DebugRtCN _ -> ["color" := "black", "label" := "{DebugRt}"],
         edgeAttributes = \x y -> case (x, y) of
           (_, EitherUpCN _ _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
           (_, EitherDownCN _ _) -> ["color" := "blue", "style" := "dashed", "label" := "E"]
@@ -199,7 +207,8 @@ renderLSP lsp =
           (_, LoopEitherDownCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, Joint _) -> ["dir" := "none", "style" := "dashed"]
           (_, CN _ _) -> ["color" := "black"]
-          (_, DynCN _) -> ["color" := "black"],
+          (_, DynCN _) -> ["color" := "black"]
+          (_, DebugRtCN _) -> ["color" := "black"],
         defaultVertexAttributes = ["shape" := "plaintext"]
       }
     (genGraph lsp)
@@ -254,7 +263,6 @@ cvsp xs = Get $ \x ->
 
 -- >>> showLSP (lp :>>+ lp  )
 -- >>> runLSPWithOutputs [10] lp
--- Just ({[10,5,16,8], [16]},[[5,16,8,4]])
 lp =
   LoopEither
     ( arrLSP bothC

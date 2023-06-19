@@ -64,6 +64,12 @@ data RTSP where
   LoopEitherDown :: Int -> (Int, Int) -> RTSP
   DynSP :: DynSPState -> Action -> RTSP
   DirectReadWrite :: Int -> Int -> RTSP
+  DebugRtSP ::
+    { outputIndex :: Int,
+      soureIndex :: Int,
+      targeIndex :: Int
+    } ->
+    RTSP
 
 newtype Action = Action
   { runAction ::
@@ -89,6 +95,9 @@ data EvalState = EvalState
     runningList :: RunningList
   }
   deriving (Generic)
+
+instance Show EvalState where
+  show _ = "EvalState"
 
 data HList (xs :: [Type]) where
   (:>) :: [x] -> HList xs -> HList (x ': xs)
@@ -153,6 +162,7 @@ data LSP (outputs :: [Type]) i o where
     LSP ys i o2 ->
     LSP (xs :++: '[o1] :++: ys) i o2
   Dyn :: HListLength xs => LSP xs (Either (LSP xs a b) a) b
+  DebugRt :: LSP '[EvalState] a a
 
 infixr 1 :>>>
 
@@ -171,6 +181,7 @@ instance Show (LSP xs i o) where
     (LoopEither lsp) -> "[LoopEither " ++ show lsp ++ "]"
     (a :>>+ b) -> "((" ++ show a ++ ") :>+ (" ++ show b ++ "))"
     Dyn -> " Dyn "
+    DebugRt -> " DebugRt "
 
 newtype DynSpecialNum = DynSpecialNum Int deriving (Show, Eq, Ord)
 

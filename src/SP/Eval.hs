@@ -11,6 +11,7 @@ import Control.Carrier.Fresh.Strict (Fresh, runFresh)
 import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (runState)
 import Control.Effect.State (State)
+import qualified Control.Effect.State as S
 import Control.Monad (forM)
 import qualified Data.Map as Map
 import GHC.Exts (toList)
@@ -30,8 +31,14 @@ eval = do
     Nothing -> pure ()
     Just sfun@(RTSPWrapper index rtsp) -> do
       case rtsp of
-        DirectReadWrite i o -> do 
-          readVal sfun i $ \someVal -> do 
+        DebugRtSP ouput i o -> do
+          es <- S.get @EvalState
+          writeVal (SomeVal es) ouput
+          readVal sfun i $ \someVal -> do
+            writeVal someVal o
+            runningAdd sfun
+        DirectReadWrite i o -> do
+          readVal sfun i $ \someVal -> do
             writeVal someVal o
             runningAdd sfun
         DynSP dysps@(DynSPState i _ _ _) (Action f) -> do
