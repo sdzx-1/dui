@@ -9,7 +9,7 @@ module SP.Eval where
 import Control.Algebra (Has, (:+:))
 import Control.Carrier.Fresh.Strict (Fresh, runFresh)
 import Control.Carrier.Lift (runM)
-import Control.Carrier.State.Strict (get, runState)
+import Control.Carrier.State.Strict (runState)
 import Control.Effect.State (State)
 import Control.Monad (forM)
 import qualified Data.Map as Map
@@ -30,7 +30,11 @@ eval = do
     Nothing -> pure ()
     Just sfun@(RTSPWrapper index rtsp) -> do
       case rtsp of
-        DynSP dysps@(DynSPState i _ _) (Action f) -> do
+        DirectReadWrite i o -> do 
+          readVal sfun i $ \someVal -> do 
+            writeVal someVal o
+            runningAdd sfun
+        DynSP dysps@(DynSPState i _ _ _) (Action f) -> do
           readVal sfun i $ \(SomeVal a) -> do
             f dysps (unsafeCoerce a)
             runningAdd sfun
