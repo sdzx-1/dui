@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -13,7 +14,7 @@ import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (State, runState)
 import Control.Effect.Fresh (Fresh)
 import Control.Effect.Optics (assign, modifying, preuse)
-import Control.Monad (forM_)
+import Control.Monad (forM_, replicateM)
 import qualified Data.IntMap as IntMap
 import Data.List (sort)
 import qualified Data.Sequence as Seq
@@ -108,8 +109,9 @@ genES' i (lsp :>>+ rsp) = do
       (i1s ++ i2s ++ [ib])
       (c1s ++ c2s ++ [fsto, sndo])
       (d1s ++ d2s)
-genES' i Dyn = do
+genES' i (Dyn :: LSP xs i o) = do
   o <- newCSIndex
+  os <- replicateM (hListLength @xs) newCSIndex
   sn <- DynSpecialNum <$> fresh
   index <-
     addRTSP $
@@ -117,11 +119,12 @@ genES' i Dyn = do
         ( DynSPState
             { upstreamChan = i,
               downstreamChan = o,
-              dynSpecialNum = sn
+              dynSpecialNum = sn,
+              debugOutputs = os
             }
         )
         (Action dynSP)
-  pure $ GenResult [] o [index] [o] [sn]
+  pure $ GenResult os o [index] (o : os) [sn]
 
 genES :: MonadFail m => [i] -> LSP xs i o -> m (EvalState, (Int, GenResult))
 genES ls lsp =
@@ -152,7 +155,7 @@ dynSP ::
   DynSPState ->
   Either (LSP '[] a b) a ->
   m ()
-dynSP dys@(DynSPState _ _downc dsn) upVal = do
+dynSP dys@(DynSPState _ _downc dsn _) upVal = do
   mst <- preuse @DynMap (ix dsn)
   case upVal of
     Right a -> case mst of
@@ -200,16 +203,17 @@ dynGenLSP ::
   DynSPState ->
   LSP '[] a b ->
   m ()
-dynGenLSP (DynSPState _ dci dsn) lsp = do
+dynGenLSP (DynSPState _ dci dsn dOuputs) lsp = do
   ici <- newCSIndex
-  GenResult [] lspOI allRTSPI allCSI dspn <- genES' ici lsp
-  idx <- addRTSP $ SomeSP $ SPWrapper (lspOI, dci) idSP
+  GenResult dbgots lspOI allRTSPI allCSI dspn <- genES' ici lsp
+  idx <- addRTSP $ DirectReadWrite lspOI dci
+  idxs <- addRTSPList [DirectReadWrite i o | i <- dbgots, o <- dOuputs]
   assign @DynMap (at dsn) $
     Just
       LspGenState
         { lspSource = SomeLSP lsp,
           startChanIndex = ici,
-          allRTSPIndexs = allRTSPI ++ [idx],
+          allRTSPIndexs = allRTSPI ++ [idx] ++ idxs,
           allChanIndexs = allCSI ++ [ici],
           allDynSpecialNum = dspn
         }

@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -6,7 +7,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -59,10 +62,8 @@ data RTSP where
     RTSP
   Both :: Int -> (Int, Int) -> RTSP
   LoopEitherDown :: Int -> (Int, Int) -> RTSP
-  DynSP ::
-    DynSPState ->
-    Action ->
-    RTSP
+  DynSP :: DynSPState -> Action -> RTSP
+  DirectReadWrite :: Int -> Int -> RTSP
 
 newtype Action = Action
   { runAction ::
@@ -92,6 +93,15 @@ data EvalState = EvalState
 data HList (xs :: [Type]) where
   (:>) :: [x] -> HList xs -> HList (x ': xs)
   Nil :: HList '[]
+
+class HListLength (x :: [Type]) where
+  hListLength :: Int
+
+instance HListLength '[] where
+  hListLength = 0
+
+instance HListLength xs => HListLength (x ': xs) where
+  hListLength = 1 + hListLength @xs
 
 type family All (f :: Type -> Constraint) (v :: [Type]) :: Constraint where
   All f '[] = ()
@@ -142,7 +152,7 @@ data LSP (outputs :: [Type]) i o where
     LSP xs i o1 ->
     LSP ys i o2 ->
     LSP (xs :++: '[o1] :++: ys) i o2
-  Dyn :: LSP '[] (Either (LSP '[] a b) a) b
+  Dyn :: HListLength xs => LSP xs (Either (LSP xs a b) a) b
 
 infixr 1 :>>>
 
@@ -167,7 +177,8 @@ newtype DynSpecialNum = DynSpecialNum Int deriving (Show, Eq, Ord)
 data DynSPState = DynSPState
   { upstreamChan :: Int,
     downstreamChan :: Int,
-    dynSpecialNum :: DynSpecialNum
+    dynSpecialNum :: DynSpecialNum,
+    debugOutputs :: [Int]
   }
   deriving (Generic)
 
