@@ -30,8 +30,16 @@ import GHC.OldList (intercalate)
 import Optics (makeFieldLabels)
 import SP.SP
 
+newtype ChanIndex = ChanIndex Int
+
+chanIndexToInt :: ChanIndex -> Int
+chanIndexToInt (ChanIndex i) = i
+
+intToChanIndex :: Int -> ChanIndex
+intToChanIndex = ChanIndex
+
 data SPWrapper i o = SPWrapper
-  { ioIndex :: (Int, Int),
+  { ioIndex :: (ChanIndex, ChanIndex),
     sp :: SP i o ()
   }
 
@@ -44,30 +52,30 @@ extraIndex (RTSPWrapper i _) = i
 
 data RTSP where
   SomeSP :: (SPWrapper i o) -> RTSP
-  EitherUp :: Int -> (Int, Int) -> RTSP
-  EitherDownLeft :: Int -> Int -> RTSP
-  EitherDownRight :: Int -> Int -> RTSP
-  TupleUp :: Int -> (Int, Int) -> RTSP
+  EitherUp :: ChanIndex -> (ChanIndex, ChanIndex) -> RTSP
+  EitherDownLeft :: ChanIndex -> ChanIndex -> RTSP
+  EitherDownRight :: ChanIndex -> ChanIndex -> RTSP
+  TupleUp :: ChanIndex -> (ChanIndex, ChanIndex) -> RTSP
   TupleDownFst ::
-    { soureIndex :: Int,
-      otherIndex :: Int,
-      targeIndex :: Int
+    { soureIndex :: ChanIndex,
+      otherIndex :: ChanIndex,
+      targeIndex :: ChanIndex
     } ->
     RTSP
   TupleDownSnd ::
-    { soureIndex :: Int,
-      otherIndex :: Int,
-      targeIndex :: Int
+    { soureIndex :: ChanIndex,
+      otherIndex :: ChanIndex,
+      targeIndex :: ChanIndex
     } ->
     RTSP
-  Both :: Int -> (Int, Int) -> RTSP
-  LoopEitherDown :: Int -> (Int, Int) -> RTSP
+  Both :: ChanIndex -> (ChanIndex, ChanIndex) -> RTSP
+  LoopEitherDown :: ChanIndex -> (ChanIndex, ChanIndex) -> RTSP
   DynSP :: DynSPState -> Action -> RTSP
-  DirectReadWrite :: Int -> Int -> RTSP
+  DirectReadWrite :: ChanIndex -> ChanIndex -> RTSP
   DebugRtSP ::
-    { outputIndex :: Int,
-      soureIndex :: Int,
-      targeIndex :: Int
+    { outputIndex :: ChanIndex,
+      soureIndex :: ChanIndex,
+      targeIndex :: ChanIndex
     } ->
     RTSP
 
@@ -186,10 +194,10 @@ instance Show (LSP xs i o) where
 newtype DynSpecialNum = DynSpecialNum Int deriving (Show, Eq, Ord)
 
 data DynSPState = DynSPState
-  { upstreamChan :: Int,
-    downstreamChan :: Int,
+  { upstreamChan :: ChanIndex,
+    downstreamChan :: ChanIndex,
     dynSpecialNum :: DynSpecialNum,
-    debugOutputs :: [Int]
+    debugOutputs :: [ChanIndex]
   }
   deriving (Generic)
 
@@ -199,9 +207,9 @@ type DynMap = Map DynSpecialNum LSPGenState
 
 data LSPGenState = LspGenState
   { lspSource :: SomeLSP,
-    startChanIndex :: Int,
+    startChanIndex :: ChanIndex,
     allRTSPIndexs :: [Int],
-    allChanIndexs :: [Int],
+    allChanIndexs :: [ChanIndex],
     allDynSpecialNum :: [DynSpecialNum]
   }
   deriving (Generic)

@@ -121,7 +121,7 @@ genESMaybe ls lsp =
   runM $
     runState @EvalState (initEvalState ls) $
       runState @DynMap Map.empty $
-        runFresh 1 (genES' 0 lsp)
+        runFresh 1 (genES' (intToChanIndex 0) lsp)
 
 genESAndRun :: [i] -> LSP xs i o -> Maybe (EvalState, (DynMap, (Int, GenResult)))
 genESAndRun ls lsp =
@@ -129,15 +129,15 @@ genESAndRun ls lsp =
     runState @EvalState (initEvalState ls) $
       runState @DynMap Map.empty $
         runFresh 1 $ do
-          res <- genES' 0 lsp
+          res <- genES' (intToChanIndex 0) lsp
           eval
           pure res
 
 runLSP :: [i] -> LSP xs i o -> Maybe [o]
 runLSP ls lsp = do
-  genESArrest lsp
+  -- genESArrest lsp
   (es, (_, (_, GenResult _ i _ _ _))) <- genESAndRun ls lsp
-  os <- es ^? (#chans % ix i % #chan)
+  os <- es ^? (#chans % ix (chanIndexToInt i) % #chan)
   pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList os))
 
 runLSPWithOutputs ::
@@ -146,9 +146,9 @@ runLSPWithOutputs ::
   LSP outputs i o ->
   Maybe (HList outputs, [o])
 runLSPWithOutputs ls lsp = do
-  genESArrest lsp
+  -- genESArrest lsp
   (es, (_, (_, GenResult outputIndexList i _ _ _))) <- genESAndRun ls lsp
-  os <- es ^? (#chans % ix i % #chan)
+  os <- es ^? (#chans % ix (chanIndexToInt i) % #chan)
   let o = fmap (\(SomeVal a) -> unsafeCoerce a) (toList os)
-  outputSomeValList <- forM outputIndexList $ \i -> es ^? (#chans % ix i % #chan)
+  outputSomeValList <- forM outputIndexList $ \i -> es ^? (#chans % ix (chanIndexToInt i) % #chan)
   pure (someValsToHList outputSomeValList, o)

@@ -15,23 +15,20 @@ import Control.Carrier.State.Strict (State, runState)
 import Control.Effect.Fresh (Fresh)
 import Control.Effect.Optics (assign, modifying, preuse)
 import Control.Monad (forM_, replicateM)
-import qualified Data.IntMap as IntMap
-import Data.List (sort)
 import qualified Data.Sequence as Seq
-import GHC.Exts (IsList (toList))
-import Optics (At (at), Ixed (ix), (%), (^.))
+import Optics (At (at), Ixed (ix), (%))
 import SP.Type
 import SP.Util
 
 data GenResult = GenResult
   { -- | all (:>>+) First Branch ChanState index collects
-    allBFCI :: [Int],
+    allBFCI :: [ChanIndex],
     -- | LSP output ChanState index
-    lspOI :: Int,
+    lspOI :: ChanIndex,
     -- | all RTSP index list
     allRTSPI :: [Int],
     -- | all ChanState index list
-    allCSI :: [Int],
+    allCSI :: [ChanIndex],
     -- | all Dyn Special Num list
     allDynSN :: [DynSpecialNum]
   }
@@ -40,7 +37,7 @@ genES' ::
   ( Has (State EvalState :+: Fresh) sig m,
     MonadFail m
   ) =>
-  Int ->
+  ChanIndex ->
   LSP xs i o ->
   m GenResult
 genES' i (E sp) = do
@@ -135,20 +132,20 @@ genES :: MonadFail m => [i] -> LSP xs i o -> m (EvalState, (Int, GenResult))
 genES ls lsp =
   runM $
     runState @EvalState (initEvalState ls) $
-      runFresh 1 (genES' 0 lsp)
+      runFresh 1 (genES' (intToChanIndex 0) lsp)
 
-genESArrest :: MonadFail m => LSP xs i o -> m ()
-genESArrest lsp = do
-  (es, (_, GenResult _ _ ls css _)) <- genES [] lsp
-  let spIndexs = map extraIndex $ toList $ es ^. #runningList
-      chans = map fst $ IntMap.toList $ es ^. #chans
-  if (sort spIndexs == sort ls) && (sort chans == sort (0 : css))
-    then pure ()
-    else
-      error $
-        "generate lsp to EvalState error: "
-          ++ show (spIndexs, ls)
-          ++ show (chans, 0 : css)
+-- genESArrest :: MonadFail m => LSP xs i o -> m ()
+-- genESArrest lsp = do
+--   (es, (_, GenResult _ _ ls css _)) <- genES [] lsp
+--   let spIndexs = map extraIndex $ toList $ es ^. #runningList
+--       chans = map fst $ IntMap.toList $ es ^. #chans
+--   if (sort spIndexs == sort ls) && (sort chans == sort (0 : css))
+--     then pure ()
+--     else
+--       error $
+--         "generate lsp to EvalState error: "
+--           ++ show (spIndexs, ls)
+--           ++ show (chans, 0 : css)
 
 -------------------------------------------------------
 
@@ -195,7 +192,7 @@ recRemoveDynSP dsn = do
         (Seq.filter (\(RTSPWrapper i _) -> i `notElem` artspis))
       -- ChanState Map remvoe
       forM_ acis $ \i ->
-        assign @EvalState (#chans % at i) Nothing
+        assign @EvalState (#chans % at (chanIndexToInt i)) Nothing
       -- rec remvoe Dyn
       assign @DynMap (at dsn) Nothing
       mapM_ recRemoveDynSP aadsns

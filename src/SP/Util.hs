@@ -93,10 +93,10 @@ takeOne Empty = (Nothing, Empty)
 takeOne (v :<| res) = (Just v, res)
 
 newCSIndex ::
-  (Has (State EvalState :+: Fresh) sig m) => m Int
+  (Has (State EvalState :+: Fresh) sig m) => m ChanIndex
 newCSIndex = do
-  i <- fresh
-  assign @EvalState (#chans % at i) (Just initChanState)
+  i <- ChanIndex <$> fresh
+  assign @EvalState (#chans % at (chanIndexToInt i)) (Just initChanState)
   pure i
 
 takeOneSomeSP ::
@@ -123,38 +123,38 @@ runningAdd ::
 runningAdd ssp = modifying @_ @EvalState #runningList (:|> ssp)
 
 getChanLength ::
-  (Has (State EvalState) sig m, MonadFail m) => Int -> m Int
+  (Has (State EvalState) sig m, MonadFail m) => ChanIndex -> m Int
 getChanLength i = do
-  Just vs <- preuse @EvalState (#chans % ix i % #chan)
+  Just vs <- preuse @EvalState (#chans % ix (chanIndexToInt i) % #chan)
   pure $ Seq.length vs
 
 onlyReadVal ::
-  (Has (State EvalState) sig m, MonadFail m) => Int -> m SomeVal
+  (Has (State EvalState) sig m, MonadFail m) => ChanIndex -> m SomeVal
 onlyReadVal i = do
-  Just cs <- preuse @EvalState (#chans % ix i)
+  Just cs <- preuse @EvalState (#chans % ix (chanIndexToInt i))
   let (cs', Just mv) = readChan' cs
-  assign @EvalState (#chans % ix i) cs'
+  assign @EvalState (#chans % ix (chanIndexToInt i)) cs'
   pure mv
 
 attochSomeSP ::
-  (Has (State EvalState) sig m, MonadFail m) => RTSPWrapper -> Int -> m ()
+  (Has (State EvalState) sig m, MonadFail m) => RTSPWrapper -> ChanIndex -> m ()
 attochSomeSP ssp i = do
-  modifying @_ @EvalState (#chans % ix i % #waitingList) (:|> ssp)
+  modifying @_ @EvalState (#chans % ix (chanIndexToInt i) % #waitingList) (:|> ssp)
 
 readVal ::
-  (Has (State EvalState) sig m, MonadFail m) => RTSPWrapper -> Int -> (SomeVal -> m ()) -> m ()
+  (Has (State EvalState) sig m, MonadFail m) => RTSPWrapper -> ChanIndex -> (SomeVal -> m ()) -> m ()
 readVal ssp i handler = do
-  Just cs <- preuse @EvalState (#chans % ix i)
+  Just cs <- preuse @EvalState (#chans % ix (chanIndexToInt i))
   let (cs', mv) = readChan ssp cs
-  assign @EvalState (#chans % ix i) cs'
+  assign @EvalState (#chans % ix (chanIndexToInt i)) cs'
   mapM_ handler mv
 
 writeVal ::
-  (Has (State EvalState) sig m, MonadFail m) => SomeVal -> Int -> m ()
+  (Has (State EvalState) sig m, MonadFail m) => SomeVal -> ChanIndex -> m ()
 writeVal sval o = do
-  Just cs <- preuse @EvalState (#chans % ix o)
+  Just cs <- preuse @EvalState (#chans % ix (chanIndexToInt o))
   let (cs', msp) = writeChan sval cs
-  assign @EvalState (#chans % ix o) cs'
+  assign @EvalState (#chans % ix (chanIndexToInt o)) cs'
   mapM_ runningAdd msp
 
 filterLSP :: (Typeable a) => (a -> Bool) -> LSP '[] a a
@@ -221,3 +221,6 @@ type BottomSP i o sig m = HasLabelledLift (SP i o) sig m
 
 runLToLSP :: (Typeable i, Typeable o) => LabelledLift Lift (SP i o) a -> LSP '[] i o
 runLToLSP = E . runLabelledLift . void
+
+-- getEvalState :: LSP '[EvalState] a a
+-- getEvalState = undefined
