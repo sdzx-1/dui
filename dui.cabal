@@ -64,6 +64,7 @@ library
                     , SP.Gen
                     , SP.Debug
                     , SP.SP
+                    , SP.ESP
 
     -- Modules included in this library but not exported.
     -- other-modules:
