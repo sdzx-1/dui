@@ -80,6 +80,14 @@ data LSP (outputs :: [Type]) i o where
 ![branceBoth](data/branchBoth.png)
 
 
+
+```haskell
+  Dyn :: LSP xs (Either (LSP xs a b) a) b
+```
+上游动态产生(LSP xs a b)或者(a)。Dyn将上游发送的(LSP xs a b)动态生成为运行时节点，
+将上游发送的(a)送入动态产生节点的输入中。
+
+
 --------------------
 以下是求某数冰雹数列的一个实例：
 ```haskell
@@ -108,3 +116,61 @@ rlp = runLSPWithOutputs [5] lp
 
 
 ![bbs](data/bbs.png)
+
+--------------------
+下面是一个Dyn的例子：
+
+```haskell
+ch ::
+  ( BottomSP
+      (Either Void Finish)
+      (Either (LSP '[] Int Int) Int)
+      sig
+      m
+  ) =>
+  m ()
+ch = do
+  putToDownstream $ Left (arrLSP (+ 1))
+  putToDownstream $ Right 1
+  putToDownstream $ Right 2
+  putToDownstream $ Right 3
+  res <- getFromUpstream
+  case res of
+    Right Finish -> pure ()
+    _ -> error "never happened"
+  putToDownstream $ Left (arrLSP (+ 1000))
+  putToDownstream $ Right 1
+  putToDownstream $ Right 2
+  putToDownstream $ Right 3
+  res <- getFromUpstream
+  case res of
+    Right Finish -> pure ()
+    _ -> error "never happened"
+
+ct ::
+  ( Has (State Int) sig m,
+    BottomSP Int (Either Int Finish) sig m
+  ) =>
+  m ()
+ct = forever $ do
+  x <- getFromUpstream
+  modify @Int (+ 1)
+  putToDownstream (Left x)
+  i <- S.get @Int
+  when (i == 3) $ do
+    putToDownstream (Right Finish)
+    S.put @Int 0
+
+pp1 = LoopEither (runLToLSP ch :>>> Dyn :>>> runLToLSP (runState @Int 0 ct))
+
+-- >>> showLSP pp1
+-- >>> runLSPWithOutputs [] pp1
+-- Just ({},[2,3,4,1001,1002,1003])
+```
+
+整个流处理器的连接图
+![bbs](data/dynExample.png)
+
+
+
+Dyn最好和LoopEither一起使用。在动态创建节点的时候可能前一次创建的节点内部还有数据没处理完成，因此使用LoopEither将首尾节点连接起来，这样尾部节点能告知头部节点：上一次动态生成的节点是否处理了所有数据。
