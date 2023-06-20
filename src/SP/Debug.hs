@@ -8,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module SP.Debug where
 
@@ -32,6 +33,10 @@ type OutputType = String
 
 data ChanNode
   = CN OutputType Int
+  | SourceCN Int
+  | TargetCN Int
+  | CENUp OutputType Int
+  | CENDown OutputType Int
   | EitherUpCN OutputType Int
   | EitherDownCN OutputType Int
   | TupleUpCn OutputType Int
@@ -52,6 +57,10 @@ instance Ord ChanNode where
 
 chanNodeToInt :: ChanNode -> Int
 chanNodeToInt (CN _ i) = i
+chanNodeToInt (SourceCN i) = i
+chanNodeToInt (TargetCN i) = i
+chanNodeToInt (CENUp _ i) = i
+chanNodeToInt (CENDown _ i) = i
 chanNodeToInt (EitherUpCN _ i) = i
 chanNodeToInt (EitherDownCN _ i) = i
 chanNodeToInt (TupleUpCn _ i) = i
@@ -66,6 +75,10 @@ chanNodeToInt (DebugRtCN i) = i
 toName :: ChanNode -> String
 toName = \case
   CN _ i -> show i
+  SourceCN i -> show i
+  TargetCN i -> show i
+  CENUp _ i -> show i
+  CENDown _ i -> show i
   EitherUpCN _ i -> show i
   EitherDownCN _ i -> show i
   TupleUpCn _ i -> show i
@@ -96,17 +109,31 @@ getLSPOutputTypeVal _ = show $ typeOf @o undefined
 
 genGraph' ::
   Has (Fresh :+: State (Graph ChanNode)) sig m =>
+  ChanNode -> -- source
+  ChanNode -> -- target
   ChanNode ->
   LSP xs i o ->
   m ChanNode
-genGraph' i = \case
+genGraph' source target i = \case
+  v@(E _) -> do
+    i1 <- CENUp (getLSPOutputTypeVal v) <$> fresh
+    o1 <- CENDown (getLSPOutputTypeVal v) <$> fresh
+    o <- CN (getLSPOutputTypeVal v) <$> fresh
+
+    addEdge @ChanNode (source, i1)
+    addEdge @ChanNode (o1, target)
+
+    addEdge @ChanNode (i, i1)
+    addEdge @ChanNode (i1, o1)
+    addEdge @ChanNode (o1, o)
+    pure o
   v@(L _) -> do
     i' <- CN (getLSPOutputTypeVal v) <$> fresh
     addEdge @ChanNode (i, i')
     pure i'
   a :>>> b -> do
-    ai <- genGraph' i a
-    genGraph' ai b
+    ai <- genGraph' source target i a
+    genGraph' source target ai b
   a :+++ b -> do
     joint <- Joint <$> fresh
     let ait = getLSPInputTypeVal a
@@ -116,8 +143,8 @@ genGraph' i = \case
     addEdge @ChanNode (i, joint)
     addEdge @ChanNode (joint, o1)
     addEdge @ChanNode (joint, o2)
-    o1' <- genGraph' o1 a
-    o2' <- genGraph' o2 b
+    o1' <- genGraph' source target o1 a
+    o2' <- genGraph' source target o2 b
     let aot = getLSPOutputTypeVal a
         bot = getLSPOutputTypeVal b
     ko <- EitherDownCN ("Either " ++ aot ++ " " ++ bot) <$> fresh
@@ -128,7 +155,7 @@ genGraph' i = \case
     let it = getLSPInputTypeVal lsp
     i1 <- LoopEitherUpCN it <$> fresh
     addEdge @ChanNode (i, i1)
-    o1 <- genGraph' i1 lsp
+    o1 <- genGraph' source target i1 lsp
     let ot = show $ typeOf @o' undefined
     leftO <- LoopEitherDownCN ot <$> fresh
     joint <- Joint <$> fresh
@@ -145,8 +172,8 @@ genGraph' i = \case
     addEdge @ChanNode (i, joint)
     addEdge @ChanNode (joint, o1)
     addEdge @ChanNode (joint, o2)
-    o1' <- genGraph' o1 a
-    o2' <- genGraph' o2 b
+    o1' <- genGraph' source target o1 a
+    o2' <- genGraph' source target o2 b
     let aot = getLSPOutputTypeVal a
         bot = getLSPOutputTypeVal b
     ko <- TupleDownCn ("(" ++ aot ++ ", " ++ bot ++ ")") <$> fresh
@@ -161,8 +188,8 @@ genGraph' i = \case
     addEdge @ChanNode (i, joint)
     addEdge @ChanNode (joint, o1)
     addEdge @ChanNode (joint, o2)
-    genGraph' o1 a
-    genGraph' o2 b
+    genGraph' source target o1 a
+    genGraph' source target o2 b
   Dyn -> do
     o <- DynCN <$> fresh
     addEdge @ChanNode (i, o)
@@ -176,9 +203,9 @@ genGraph lsp =
   let itv = getLSPInputTypeVal lsp
    in fst $
         runIdentity $
-          runState @(Graph ChanNode) (Vertex (CN itv 0)) $
-            runFresh 1 $
-              genGraph' (CN itv 0) lsp
+          runState @(Graph ChanNode) (Vertex (CN itv 2)) $
+            runFresh 3 $
+              genGraph' (SourceCN 0) (TargetCN 1) (CN itv 2) lsp
 
 renderLSP :: Typeable i => LSP xs i o -> String
 renderLSP lsp =
@@ -195,6 +222,10 @@ renderLSP lsp =
           LoopEitherDownCN ot _ -> ["color" := "purple", "label" := remQ ot]
           Joint _ -> ["shape" := "point", "style" := "filled", "label" := "", "width" := "0", "height" := "0"]
           CN ot _ -> ["color" := "black", "label" := remQ ot]
+          SourceCN _ -> ["color" := "black", "label" := "Event Source"]
+          TargetCN _ -> ["color" := "black", "label" := "Picture Target"]
+          CENUp ot _ -> ["color" := "black", "label" := (remQ ot ++ "|Event")]
+          CENDown ot _ -> ["color" := "black", "label" := (remQ ot ++ "|Picture")]
           DynCN _ -> ["color" := "black", "label" := "{Dyn}"]
           DebugRtCN _ -> ["color" := "black", "label" := "{DebugRt}"],
         edgeAttributes = \x y -> case (x, y) of
@@ -207,6 +238,11 @@ renderLSP lsp =
           (_, LoopEitherDownCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, Joint _) -> ["dir" := "none", "style" := "dashed"]
           (_, CN _ _) -> ["color" := "black"]
+          (SourceCN _, _) -> ["color" := "blue"]
+          (__, SourceCN _) -> ["color" := "black"]
+          (_, TargetCN _) -> ["color" := "blue"]
+          (_, CENUp _ _) -> ["color" := "black"]
+          (_, CENDown _ _) -> ["color" := "orange"]
           (_, DynCN _) -> ["color" := "black"]
           (_, DebugRtCN _) -> ["color" := "black"],
         defaultVertexAttributes = ["shape" := "plaintext"]
@@ -234,6 +270,11 @@ debug = arrLSP (Val @s . show) :>>+ arrLSP id
 
 ge :: Int -> Either Int Int
 ge i = if odd i then Left i else Right i
+
+te :: SP (Either Int Event) (Either Int Picture) ()
+te = Get $ \case
+  Left v -> Put (Left v) te
+  Right Event -> Put (Right Picture) te
 
 lsp =
   debug @"input"

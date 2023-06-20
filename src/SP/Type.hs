@@ -90,7 +90,7 @@ data RTSP where
     { o1Index :: ChanIndex,
       oIndex :: ChanIndex,
       globalIndex :: ChanIndex,
-      i1Index :: ChanState
+      i1Index :: ChanIndex
     } ->
     RTSP
 

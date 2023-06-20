@@ -133,7 +133,14 @@ genES' _ i DebugRt = do
   output <- newCSIndex
   index <- addRTSP $ DebugRtSP output i o
   pure $ GenResult [output] o [index] (o : [output]) [] []
-genES' _ _ (E _) = undefined
+genES' global i (E esp) = do
+  i1 <- newCSIndex
+  f1 <- addRTSP $ EitherDownLeft i i1
+  o1 <- newCSIndex
+  espI <- addRTSP $ SomeSP $ SPWrapper (i1, o1) esp
+  o <- newCSIndex
+  f2 <- addRTSP $ ESPDown o1 o global i1
+  pure $ GenResult [] o [f1, espI, f2] [i1, o1, o] [] [i1]
 
 genES :: MonadFail m => [i] -> LSP xs i o -> m (EvalState, (Int, GenResult))
 genES ls lsp =
