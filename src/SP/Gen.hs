@@ -30,7 +30,8 @@ data GenResult = GenResult
     -- | all ChanState index list
     allCSI :: [ChanIndex],
     -- | all Dyn Special Num list
-    allDynSN :: [DynSpecialNum]
+    allDynSN :: [DynSpecialNum],
+    allESPInputIndexList :: [ChanIndex]
   }
 
 genES' ::
@@ -41,20 +42,20 @@ genES' ::
   ChanIndex ->
   LSP xs i o ->
   m GenResult
-genES' global i (L sp) = do
+genES' _ i (L sp) = do
   i' <- newCSIndex
   index <- addRTSP $ SomeSP $ SPWrapper (i, i') sp
-  pure $ GenResult [] i' [index] [i'] []
+  pure $ GenResult [] i' [index] [i'] [] []
 genES' global i (lsp :>>> lsps) = do
-  GenResult ots1 i' i1s c1s d1s <- genES' global i lsp
-  GenResult ots2 i'' i2s c2s d2s <- genES' global i' lsps
-  pure $ GenResult (ots1 ++ ots2) i'' (i1s ++ i2s) (c1s ++ c2s) (d1s ++ d2s)
+  GenResult ots1 i' i1s c1s d1s eil1 <- genES' global i lsp
+  GenResult ots2 i'' i2s c2s d2s eil2 <- genES' global i' lsps
+  pure $ GenResult (ots1 ++ ots2) i'' (i1s ++ i2s) (c1s ++ c2s) (d1s ++ d2s) (eil1 ++ eil2)
 genES' global i ((:+++) lsp rsp) = do
   lo <- newCSIndex
   ro <- newCSIndex
   ie <- addRTSP $ EitherUp i (lo, ro)
-  GenResult lots lo' i1s c1s d1s <- genES' global lo lsp
-  GenResult rots ro' i2s c2s d2s <- genES' global ro rsp
+  GenResult lots lo' i1s c1s d1s eil1 <- genES' global lo lsp
+  GenResult rots ro' i2s c2s d2s eil2 <- genES' global ro rsp
   ko <- newCSIndex
   ies <-
     addRTSPList
@@ -68,19 +69,20 @@ genES' global i ((:+++) lsp rsp) = do
       (i1s ++ i2s ++ [ie] ++ ies)
       (c1s ++ c2s ++ [lo, ro, ko])
       (d1s ++ d2s)
+      (eil1 ++ eil2)
 genES' global i (LoopEither lsp) = do
   i1 <- newCSIndex
   il <- addRTSP $ EitherDownLeft i i1
-  GenResult ots o1 is c1s d1s <- genES' global i1 lsp
+  GenResult ots o1 is c1s d1s eil1 <- genES' global i1 lsp
   leftO <- newCSIndex
   ill <- addRTSP $ LoopEitherDown o1 (leftO, i1)
-  pure $ GenResult ots leftO (is ++ [il, ill]) (c1s ++ [i1, leftO]) d1s
+  pure $ GenResult ots leftO (is ++ [il, ill]) (c1s ++ [i1, leftO]) d1s eil1
 genES' global i (lsp :*** rsp) = do
   fsto <- newCSIndex
   sndo <- newCSIndex
   it <- addRTSP $ TupleUp i (fsto, sndo)
-  GenResult fots fsto' i1s c1s d1s <- genES' global fsto lsp
-  GenResult sots sndo' i2s c2s d2s <- genES' global sndo rsp
+  GenResult fots fsto' i1s c1s d1s eil1 <- genES' global fsto lsp
+  GenResult sots sndo' i2s c2s d2s eil2 <- genES' global sndo rsp
   ko <- newCSIndex
   its <-
     addRTSPList
@@ -94,12 +96,13 @@ genES' global i (lsp :*** rsp) = do
       (i1s ++ i2s ++ [it] ++ its)
       (c1s ++ c2s ++ [fsto, sndo, ko])
       (d1s ++ d2s)
+      (eil1 ++ eil2)
 genES' global i (lsp :>>+ rsp) = do
   fsto <- newCSIndex
   sndo <- newCSIndex
   ib <- addRTSP $ Both i (fsto, sndo)
-  GenResult fots fsto' i1s c1s d1s <- genES' global fsto lsp
-  GenResult sots sndo' i2s c2s d2s <- genES' global sndo rsp
+  GenResult fots fsto' i1s c1s d1s eil1 <- genES' global fsto lsp
+  GenResult sots sndo' i2s c2s d2s eil2 <- genES' global sndo rsp
   pure $
     GenResult
       (fots ++ [fsto'] ++ sots)
@@ -107,6 +110,7 @@ genES' global i (lsp :>>+ rsp) = do
       (i1s ++ i2s ++ [ib])
       (c1s ++ c2s ++ [fsto, sndo])
       (d1s ++ d2s)
+      (eil1 ++ eil2)
 genES' global i (Dyn :: LSP xs i o) = do
   o <- newCSIndex
   os <- replicateM (hListLength @xs) newCSIndex
@@ -123,13 +127,13 @@ genES' global i (Dyn :: LSP xs i o) = do
             }
         )
         (Action dynSP)
-  pure $ GenResult os o [index] (o : os) [sn]
-genES' global i DebugRt = do
+  pure $ GenResult os o [index] (o : os) [sn] []
+genES' _ i DebugRt = do
   o <- newCSIndex
   output <- newCSIndex
   index <- addRTSP $ DebugRtSP output i o
-  pure $ GenResult [output] o [index] (o : [output]) []
-genES' global _ (E _) = undefined
+  pure $ GenResult [output] o [index] (o : [output]) [] []
+genES' _ _ (E _) = undefined
 
 genES :: MonadFail m => [i] -> LSP xs i o -> m (EvalState, (Int, GenResult))
 genES ls lsp =
@@ -210,7 +214,7 @@ dynGenLSP ::
   m ()
 dynGenLSP (DynSPState _ dci dsn dOuputs global) lsp = do
   ici <- newCSIndex
-  GenResult dbgots lspOI allRTSPI allCSI dspn <- genES' global ici lsp
+  GenResult dbgots lspOI allRTSPI allCSI dspn _ <- genES' global ici lsp
   idx <- addRTSP $ DirectReadWrite lspOI dci
   idxs <- addRTSPList [DirectReadWrite i o | i <- dbgots, o <- dOuputs]
   assign @DynMap (at dsn) $

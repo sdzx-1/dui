@@ -143,7 +143,7 @@ genESAndRun ls lsp =
 runLSP :: [i] -> LSP xs i o -> Maybe [o]
 runLSP ls lsp = do
   -- genESArrest lsp
-  (es, (_, (_, GenResult _ i _ _ _))) <- genESAndRun ls lsp
+  (es, (_, (_, GenResult _ i _ _ _ _))) <- genESAndRun ls lsp
   os <- es ^? (#chans % ix (chanIndexToInt i) % #chan)
   pure (fmap (\(SomeVal a) -> unsafeCoerce a) (toList os))
 
@@ -154,7 +154,7 @@ runLSPWithOutputs ::
   Maybe (HList outputs, [o])
 runLSPWithOutputs ls lsp = do
   -- genESArrest lsp
-  (es, (_, (_, GenResult outputIndexList i _ _ _))) <- genESAndRun ls lsp
+  (es, (_, (_, GenResult outputIndexList i _ _ _ _))) <- genESAndRun ls lsp
   os <- es ^? (#chans % ix (chanIndexToInt i) % #chan)
   let o = fmap (\(SomeVal a) -> unsafeCoerce a) (toList os)
   outputSomeValList <- forM outputIndexList $ \i -> es ^? (#chans % ix (chanIndexToInt i) % #chan)
