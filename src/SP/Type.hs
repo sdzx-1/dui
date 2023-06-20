@@ -28,7 +28,6 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import GHC.OldList (intercalate)
 import Optics (makeFieldLabels)
-import SP.ESP
 import SP.SP
 
 newtype ChanIndex = ChanIndex Int
@@ -87,6 +86,13 @@ data RTSP where
       targeIndex :: ChanIndex
     } ->
     RTSP
+  ESPDown ::
+    { o1Index :: ChanIndex,
+      oIndex :: ChanIndex,
+      globalIndex :: ChanIndex,
+      i1Index :: ChanState
+    } ->
+    RTSP
 
 newtype Action = Action
   { runAction ::
@@ -115,6 +121,10 @@ data EvalState = EvalState
 
 instance Show EvalState where
   show _ = "EvalState"
+
+data Event = Event
+
+data Picture = Picture
 
 data HList (xs :: [Type]) where
   (:>) :: [x] -> HList xs -> HList (x ': xs)
@@ -180,7 +190,10 @@ data LSP (outputs :: [Type]) i o where
     LSP (xs :++: '[o1] :++: ys) i o2
   Dyn :: HListLength xs => LSP xs (Either (LSP xs a b) a) b
   DebugRt :: LSP '[EvalState] a a
-  E :: (Typeable i, Typeable o) => ESP i o () -> LSP '[] i o
+  E ::
+    (Typeable i, Typeable o) =>
+    SP (Either i Event) (Either o Picture) () ->
+    LSP '[] i o
 
 infixr 1 :>>>
 
@@ -208,7 +221,8 @@ data DynSPState = DynSPState
   { upstreamChan :: ChanIndex,
     downstreamChan :: ChanIndex,
     dynSpecialNum :: DynSpecialNum,
-    debugOutputs :: [ChanIndex]
+    debugOutputs :: [ChanIndex],
+    globalChanIndex :: ChanIndex
   }
   deriving (Generic)
 
