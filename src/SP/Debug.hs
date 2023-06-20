@@ -22,7 +22,7 @@ import Data.Functor.Identity
 import qualified Data.Text as T
 import Data.Typeable (Typeable, typeOf)
 import GHC.TypeLits (KnownSymbol, Symbol)
-import SP.Eval (runLSPWithOutputs)
+import SP.Eval (runLSPWithOutputs1)
 import SP.SP (SP (..))
 import SP.Type
 import SP.Util
@@ -280,8 +280,11 @@ lsp =
   debug @"input"
     :>>> arrLSP (+ 1)
     :>>> debug @"+1"
+    :>>> E te
     :>>> arrLSPState 0 (\s a -> (s + a, s + a))
+    :>>> E te
     :>>> debug @"acc"
+    :>>> E te
     :>>> arrLSP ge
     :>>> debug @"generate Either"
     :>>> ((arrLSP (+ 1) :>>> debug @"el") ||| arrLSP (+ 2))
@@ -290,8 +293,8 @@ lsp =
 
 -- >>> res
 -- >>> showLSP (lsp)
--- Just ({[1,2,3,4], [2,3,4,5], [2,5,9,14], [Right 2,Left 5,Left 9,Right 14], [6,10], [4,6,16,10]},[(8,4),(12,6),(32,16),(20,10)])
-res = runLSPWithOutputs [1 .. 4] lsp
+-- Just ({[1,2,3,4], [2,3,4,5], [2,5,9,14], [Right 2,Left 5,Left 9,Right 14], [6,10], [4,6,16,10]},[(ChanIndex 18,Picture),(ChanIndex 26,Picture),(ChanIndex 39,Picture)],[(8,4),(12,6),(32,16),(20,10)])
+res = runLSPWithOutputs1 [1 .. 4] lsp
 
 vs :: [Int]
 vs = [1, 2, 4]

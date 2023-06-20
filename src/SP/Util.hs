@@ -78,7 +78,13 @@ initEvalState ls =
   EvalState
     { chans =
         IntMap.fromList
-          [ ( 1,
+          [ ( 0,
+              ChanState
+                { chan = Seq.empty,
+                  waitingList = Seq.empty
+                }
+            ),
+            ( 1,
               ChanState
                 { chan = Seq.fromList (map SomeVal ls),
                   waitingList = Seq.empty

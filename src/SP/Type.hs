@@ -31,6 +31,7 @@ import Optics (makeFieldLabels)
 import SP.SP
 
 newtype ChanIndex = ChanIndex Int
+  deriving (Show)
 
 chanIndexToInt :: ChanIndex -> Int
 chanIndexToInt (ChanIndex i) = i
@@ -123,8 +124,10 @@ instance Show EvalState where
   show _ = "EvalState"
 
 data Event = Event
+  deriving (Show)
 
 data Picture = Picture
+  deriving (Show)
 
 data HList (xs :: [Type]) where
   (:>) :: [x] -> HList xs -> HList (x ': xs)

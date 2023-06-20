@@ -10,10 +10,12 @@ import Control.Algebra (Has, (:+:))
 import Control.Carrier.Fresh.Strict (Fresh, runFresh)
 import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (runState)
+import Control.Effect.Optics (modifying)
 import Control.Effect.State (State)
 import qualified Control.Effect.State as S
-import Control.Monad (forM)
+import Control.Monad (forM, forM_)
 import qualified Data.Map as Map
+import Data.Sequence (Seq (..))
 import GHC.Exts (toList)
 import Optics (Ixed (ix), (%), (^?))
 import SP.Gen
@@ -136,7 +138,11 @@ genESAndRun ls lsp =
     runState @EvalState (initEvalState ls) $
       runState @DynMap Map.empty $
         runFresh 2 $ do
-          res <- genES' (intToChanIndex 0) (intToChanIndex 1) lsp
+          res@(GenResult _ _ _ _ _ eventIndexList) <- genES' (intToChanIndex 0) (intToChanIndex 1) lsp
+          forM_ eventIndexList $ \ci -> do
+            modifying @_ @EvalState
+              (#chans % ix (chanIndexToInt ci) % #chan)
+              (:|> SomeVal (Right Event))
           eval
           pure res
 
@@ -159,3 +165,18 @@ runLSPWithOutputs ls lsp = do
   let o = fmap (\(SomeVal a) -> unsafeCoerce a) (toList os)
   outputSomeValList <- forM outputIndexList $ \i -> es ^? (#chans % ix (chanIndexToInt i) % #chan)
   pure (someValsToHList outputSomeValList, o)
+
+runLSPWithOutputs1 ::
+  SomeValsToHList outputs =>
+  [i] ->
+  LSP outputs i o ->
+  Maybe (HList outputs, [(ChanIndex, Picture)], [o])
+runLSPWithOutputs1 ls lsp = do
+  -- genESArrest lsp
+  (es, (_, (_, GenResult outputIndexList i _ _ _ _))) <- genESAndRun ls lsp
+  os <- es ^? (#chans % ix (chanIndexToInt i) % #chan)
+  let o = fmap (\(SomeVal a) -> unsafeCoerce a) (toList os)
+  outputSomeValList <- forM outputIndexList $ \i -> es ^? (#chans % ix (chanIndexToInt i) % #chan)
+  ccs <- es ^? (#chans % ix 0 % #chan)
+  let occs = fmap (\(SomeVal a) -> unsafeCoerce a) (toList ccs)
+  pure (someValsToHList outputSomeValList, occs, o)
