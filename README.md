@@ -14,17 +14,33 @@ data SP i o a
 如何组合流处理器:
 ```haskell
 data LSP (outputs :: [Type]) i o where
-  E :: SP i o () -> LSP '[] i o
+  L :: SP i o () -> LSP '[] i o
   (:>>>) :: LSP xs i o -> LSP ys o p -> LSP (xs :++: ys) i p
-  (:+++) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (Either i1 i2) (Either o1 o2)
-  (:***) :: LSP xs i1 o1 -> LSP ys i2 o2 -> LSP (xs :++: ys) (i1, i2) (o1, o2)
-  LoopEither :: LSP xs (Either i k) (Either o k) -> LSP xs i o
-  (:>>+) :: LSP xs i o1 -> LSP ys i o2 -> LSP (xs :++: '[o1] :++: ys) i o2
+  (:+++) ::
+    LSP xs i1 o1 ->
+    LSP ys i2 o2 ->
+    LSP (xs :++: ys) (Either i1 i2) (Either o1 o2)
+  (:***) ::
+    LSP xs i1 o1 ->
+    LSP ys i2 o2 ->
+    LSP (xs :++: ys) (i1, i2) (o1, o2)
+  LoopEither ::
+    LSP xs (Either i k) (Either o k) ->
+    LSP xs i o
+  (:>>+) ::
+    LSP xs i o1 ->
+    LSP ys i o2 ->
+    LSP (xs :++: '[o1] :++: ys) i o2
+  Dyn :: LSP xs (Either (LSP xs a b) a) b
+  DebugRt :: LSP '[EvalState] a a
+  E ::
+    SP (Either i Event) (Either o Picture) () ->
+    LSP '[] i o
 ```
 流处理的组合与程序的组合有相似的地方，都涉及到了顺序，分支，循环着三种主要结构。
 
 ```haskell
-  E :: SP i o () -> LSP '[] i o
+  L :: SP i o () -> LSP '[] i o
 ```
 使用底层流处理器构成LSP
 
@@ -86,6 +102,32 @@ data LSP (outputs :: [Type]) i o where
 ```
 上游动态产生(LSP xs a b)或者(a)。Dyn将上游发送的(LSP xs a b)动态生成为运行时节点，
 将上游发送的(a)送入动态产生节点的输入中。
+
+
+```haskell
+  E :: SP (Either i Event) (Either o Picture) () -> LSP '[] i o
+```
+代表ui的流处理器。
+
+以下是一个例子：
+
+```haskell
+te :: SP (Either Int Event) (Either Int Picture) ()
+te = Get $ \case
+  Left v -> Put (Left v) te
+  Right Event -> Put (Right Picture) te
+
+lsp = E te
+lsp' = lsp :>>> lsp :>>> lsp :>>> lsp
+```
+lsp 的示意图如下
+
+![branceBoth](data/esp.png)
+
+当多个这样lsp连接时，会有如下的示意图
+
+![branceBoth](data/mlsp.png)
+
 
 
 --------------------
