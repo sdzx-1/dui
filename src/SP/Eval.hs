@@ -31,6 +31,13 @@ eval = do
     Nothing -> pure ()
     Just sfun@(RTSPWrapper index rtsp) -> do
       case rtsp of
+        ESPDown o1 o global i1 -> do
+          readVal sfun o1 $ \(SomeVal val) -> do
+            let (eindex, someVal') = case unsafeCoerce val of
+                  Left lv -> (o, SomeVal lv)
+                  Right rv -> (global, SomeVal (i1, rv))
+            writeVal someVal' eindex
+            runningAdd sfun
         DebugRtSP ouput i o -> do
           es <- S.get @EvalState
           writeVal (SomeVal es) ouput
@@ -41,7 +48,7 @@ eval = do
           readVal sfun i $ \someVal -> do
             writeVal someVal o
             runningAdd sfun
-        DynSP dysps@(DynSPState i _ _ _) (Action f) -> do
+        DynSP dysps@(DynSPState i _ _ _ _) (Action f) -> do
           readVal sfun i $ \(SomeVal a) -> do
             f dysps (unsafeCoerce a)
             runningAdd sfun
@@ -121,15 +128,15 @@ genESMaybe ls lsp =
   runM $
     runState @EvalState (initEvalState ls) $
       runState @DynMap Map.empty $
-        runFresh 1 (genES' (intToChanIndex 0) lsp)
+        runFresh 2 (genES' (intToChanIndex 0) (intToChanIndex 1) lsp)
 
 genESAndRun :: [i] -> LSP xs i o -> Maybe (EvalState, (DynMap, (Int, GenResult)))
 genESAndRun ls lsp =
   runM $
     runState @EvalState (initEvalState ls) $
       runState @DynMap Map.empty $
-        runFresh 1 $ do
-          res <- genES' (intToChanIndex 0) lsp
+        runFresh 2 $ do
+          res <- genES' (intToChanIndex 0) (intToChanIndex 1) lsp
           eval
           pure res
 
