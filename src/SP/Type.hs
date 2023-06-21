@@ -197,6 +197,13 @@ data LSP (outputs :: [Type]) i o where
     (Typeable i, Typeable o) =>
     SP (Either i Event) (Either o Picture) () ->
     LSP '[] i o
+  Container ::
+    SP
+      (Either Event (ChanIndex, Picture))
+      (Either Picture (ChanIndex, Event))
+      () ->
+    LSP xs i o ->
+    LSP xs i o
 
 infixr 1 :>>>
 
