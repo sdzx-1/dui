@@ -94,6 +94,12 @@ data RTSP where
       i1Index :: ChanIndex
     } ->
     RTSP
+  ContainerDown ::
+    { i1Index :: ChanIndex,
+      o1Index :: ChanIndex,
+      globalIndex :: ChanIndex
+    } ->
+    RTSP
 
 newtype Action = Action
   { runAction ::
@@ -199,8 +205,8 @@ data LSP (outputs :: [Type]) i o where
     LSP '[] i o
   Container ::
     SP
-      (Either Event (ChanIndex, Picture))
-      (Either Picture (ChanIndex, Event))
+      (Either (ChanIndex, Picture) Event)
+      (Either (ChanIndex, Event) Picture)
       () ->
     LSP xs i o ->
     LSP xs i o
@@ -224,6 +230,7 @@ instance Show (LSP xs i o) where
     Dyn -> " Dyn "
     DebugRt -> " DebugRt "
     E _ -> " ** "
+    Container _ lsp -> "Container{" ++ show lsp  ++ "}"
 
 newtype DynSpecialNum = DynSpecialNum Int deriving (Show, Eq, Ord)
 

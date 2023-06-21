@@ -115,6 +115,14 @@ genGraph' ::
   LSP xs i o ->
   m ChanNode
 genGraph' source target i = \case
+  Container _ lsp -> do
+    source1 <- SourceCN <$> fresh
+    target1 <- TargetCN <$> fresh
+    addEdge @ChanNode (target1, source1)
+    o <- genGraph' source1 target1 i lsp
+    addEdge @ChanNode (source, target1)
+    addEdge @ChanNode (source1, target)
+    pure o
   v@(E _) -> do
     i1 <- CENUp (getLSPOutputTypeVal v) <$> fresh
     o1 <- CENDown (getLSPOutputTypeVal v) <$> fresh
@@ -276,24 +284,38 @@ te = Get $ \case
   Left v -> Put (Left v) te
   Right Event -> Put (Right Picture) te
 
+te' = Put (Right Picture) te
+
+consp ::
+  SP
+    (Either (ChanIndex, Picture) Event)
+    (Either (ChanIndex, Event) Picture)
+    ()
+consp = Get $ \case
+  Left (_, Picture) -> Put (Right Picture) consp
+  Right _ -> consp
+
+-- >>> showLSP (lsp )
 lsp =
-  debug @"input"
-    :>>> arrLSP (+ 1)
-    :>>> debug @"+1"
-    :>>> E te
-    :>>> arrLSPState 0 (\s a -> (s + a, s + a))
-    :>>> E te
-    :>>> debug @"acc"
-    :>>> E te
-    :>>> arrLSP ge
-    :>>> debug @"generate Either"
-    :>>> ((arrLSP (+ 1) :>>> debug @"el") ||| arrLSP (+ 2))
-    :>>> debug @"modify Either"
-    :>>> (arrLSP (* 2) &&& arrLSP id)
+  Container
+    consp
+    ( debug @"input"
+        :>>> arrLSP (+ 1)
+        :>>> debug @"+1"
+        :>>> E te'
+        :>>> arrLSPState 0 (\s a -> (s + a, s + a))
+        :>>> E te'
+        :>>> debug @"acc"
+        :>>> E te'
+        :>>> arrLSP ge
+        :>>> debug @"generate Either"
+        :>>> ((arrLSP (+ 1) :>>> debug @"el") ||| arrLSP (+ 2))
+        :>>> debug @"modify Either"
+        :>>> (arrLSP (* 2) &&& arrLSP id)
+    )
 
 -- >>> res
--- >>> showLSP (lsp)
--- Just ({[1,2,3,4], [2,3,4,5], [2,5,9,14], [Right 2,Left 5,Left 9,Right 14], [6,10], [4,6,16,10]},[(ChanIndex 18,Picture),(ChanIndex 26,Picture),(ChanIndex 39,Picture)],[(8,4),(12,6),(32,16),(20,10)])
+-- Just ({[1,2,3,4], [2,3,4,5], [2,5,9,14], [Right 2,Left 5,Left 9,Right 14], [6,10], [4,6,16,10]},[(ChanIndex 93,Picture),(ChanIndex 93,Picture),(ChanIndex 93,Picture)],[(8,4),(12,6),(32,16),(20,10)])
 res = runLSPWithOutputs1 [1 .. 4] lsp
 
 vs :: [Int]

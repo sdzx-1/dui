@@ -141,6 +141,22 @@ genES' global i (E esp) = do
   o <- newCSIndex
   f2 <- addRTSP $ ESPDown o1 o global i1
   pure $ GenResult [] o [f1, espI, f2] [i1, o1, o] [] [i1]
+genES' global i (Container sp lsp) = do
+  global1 <- newCSIndex
+  GenResult fots o i1s c1s d1s eil1 <- genES' global1 i lsp
+  i1 <- newCSIndex
+  f1 <- addRTSP $ EitherDownLeft global1 i1
+  o1 <- newCSIndex
+  spI <- addRTSP $ SomeSP $ SPWrapper (i1, o1) sp
+  contDownRTSPIndex <- addRTSP $ ContainerDown i1 o1 global
+  pure $
+    GenResult
+      fots
+      o
+      (i1s ++ [f1, spI, contDownRTSPIndex])
+      (c1s ++ [global1, i1, o1])
+      d1s
+      eil1
 
 genES :: MonadFail m => [i] -> LSP xs i o -> m (EvalState, (Int, GenResult))
 genES ls lsp =

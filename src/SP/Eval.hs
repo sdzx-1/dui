@@ -33,6 +33,14 @@ eval = do
     Nothing -> pure ()
     Just sfun@(RTSPWrapper index rtsp) -> do
       case rtsp of
+        ContainerDown i1 o1 global -> do
+          readVal sfun o1 $ \(SomeVal val) -> do
+            let (eindex, someVal') =
+                  case unsafeCoerce val :: Either (ChanIndex, Event) Picture of
+                    Left (ci, e) -> (ci, SomeVal (Right e))
+                    Right pic -> (global, SomeVal(i1, pic))
+            writeVal someVal' eindex
+            runningAdd sfun
         ESPDown o1 o global i1 -> do
           readVal sfun o1 $ \(SomeVal val) -> do
             let (eindex, someVal') = case unsafeCoerce val of
@@ -138,11 +146,7 @@ genESAndRun ls lsp =
     runState @EvalState (initEvalState ls) $
       runState @DynMap Map.empty $
         runFresh 2 $ do
-          res@(GenResult _ _ _ _ _ eventIndexList) <- genES' (intToChanIndex 0) (intToChanIndex 1) lsp
-          forM_ eventIndexList $ \ci -> do
-            modifying @_ @EvalState
-              (#chans % ix (chanIndexToInt ci) % #chan)
-              (:|> SomeVal (Right Event))
+          res@(GenResult _ _ _ _ _ _eventIndexList) <- genES' (intToChanIndex 0) (intToChanIndex 1) lsp
           eval
           pure res
 
