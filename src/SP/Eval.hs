@@ -21,6 +21,7 @@ import SP.SP (SP (..))
 import SP.Type
 import SP.Util
 import Unsafe.Coerce (unsafeCoerce)
+import SP.BaseType
 
 --------------------------------------------------------------------
 

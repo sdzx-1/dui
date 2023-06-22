@@ -28,6 +28,7 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import GHC.OldList (intercalate)
 import Optics (makeFieldLabels)
+import SP.BaseType
 import SP.SP
 
 newtype ChanIndex = ChanIndex Int
@@ -129,12 +130,6 @@ data EvalState = EvalState
 instance Show EvalState where
   show _ = "EvalState"
 
-data Event = Event
-  deriving (Show)
-
-data Picture = Picture
-  deriving (Show)
-
 data HList (xs :: [Type]) where
   (:>) :: [x] -> HList xs -> HList (x ': xs)
   Nil :: HList '[]
@@ -230,7 +225,7 @@ instance Show (LSP xs i o) where
     Dyn -> " Dyn "
     DebugRt -> " DebugRt "
     E _ -> " ** "
-    Container _ lsp -> "Container{" ++ show lsp  ++ "}"
+    Container _ lsp -> "Container{" ++ show lsp ++ "}"
 
 newtype DynSpecialNum = DynSpecialNum Int deriving (Show, Eq, Ord)
 

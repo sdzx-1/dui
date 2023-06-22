@@ -25,6 +25,7 @@ import GHC.TypeLits (KnownSymbol, Symbol)
 import SP.Eval (runLSPWithOutputs1)
 import SP.SP (SP (..))
 import SP.Type
+import SP.BaseType
 import SP.Util
 import Shelly
 import System.IO
