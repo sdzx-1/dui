@@ -33,8 +33,8 @@ type OutputType = String
 
 data ChanNode
   = CN OutputType Int
-  | SourceCN Int
-  | TargetCN Int
+  | SourceCN Int Int
+  | TargetCN Int Int
   | CENUp OutputType Int
   | CENDown OutputType Int
   | EitherUpCN OutputType Int
@@ -57,8 +57,8 @@ instance Ord ChanNode where
 
 chanNodeToInt :: ChanNode -> Int
 chanNodeToInt (CN _ i) = i
-chanNodeToInt (SourceCN i) = i
-chanNodeToInt (TargetCN i) = i
+chanNodeToInt (SourceCN _ i) = i
+chanNodeToInt (TargetCN _ i) = i
 chanNodeToInt (CENUp _ i) = i
 chanNodeToInt (CENDown _ i) = i
 chanNodeToInt (EitherUpCN _ i) = i
@@ -75,8 +75,8 @@ chanNodeToInt (DebugRtCN i) = i
 toName :: ChanNode -> String
 toName = \case
   CN _ i -> show i
-  SourceCN i -> show i
-  TargetCN i -> show i
+  SourceCN _ i -> show i
+  TargetCN _ i -> show i
   CENUp _ i -> show i
   CENDown _ i -> show i
   EitherUpCN _ i -> show i
@@ -116,8 +116,9 @@ genGraph' ::
   m ChanNode
 genGraph' source target i = \case
   Container _ lsp -> do
-    source1 <- SourceCN <$> fresh
-    target1 <- TargetCN <$> fresh
+    k <- fresh
+    source1 <- SourceCN k <$> fresh
+    target1 <- TargetCN k <$> fresh
     addEdge @ChanNode (target1, source1)
     o <- genGraph' source1 target1 i lsp
     addEdge @ChanNode (source, target1)
@@ -213,7 +214,7 @@ genGraph lsp =
         runIdentity $
           runState @(Graph ChanNode) (Vertex (CN itv 2)) $
             runFresh 3 $
-              genGraph' (SourceCN 0) (TargetCN 1) (CN itv 2) lsp
+              genGraph' (SourceCN 0 0) (TargetCN 0 1) (CN itv 2) lsp
 
 renderLSP :: Typeable i => LSP xs i o -> String
 renderLSP lsp =
@@ -230,8 +231,8 @@ renderLSP lsp =
           LoopEitherDownCN ot _ -> ["color" := "purple", "label" := remQ ot]
           Joint _ -> ["shape" := "point", "style" := "filled", "label" := "", "width" := "0", "height" := "0"]
           CN ot _ -> ["color" := "black", "label" := remQ ot]
-          SourceCN _ -> ["color" := "black", "label" := "Event Source"]
-          TargetCN _ -> ["color" := "black", "label" := "Picture Target"]
+          SourceCN i _ -> ["color" := "black", "label" := ("Event Source [" ++ show i ++ "]")]
+          TargetCN i _ -> ["color" := "black", "label" := ("Picture Target [" ++ show i ++ "]")]
           CENUp ot _ -> ["color" := "black", "label" := (remQ ot ++ "|Event")]
           CENDown ot _ -> ["color" := "black", "label" := (remQ ot ++ "|Picture")]
           DynCN _ -> ["color" := "black", "label" := "{Dyn}"]
@@ -246,9 +247,9 @@ renderLSP lsp =
           (_, LoopEitherDownCN _ _) -> ["color" := "purple", "style" := "dashed", "label" := "L"]
           (_, Joint _) -> ["dir" := "none", "style" := "dashed"]
           (_, CN _ _) -> ["color" := "black"]
-          (SourceCN _, _) -> ["color" := "blue"]
-          (__, SourceCN _) -> ["color" := "black"]
-          (_, TargetCN _) -> ["color" := "blue"]
+          (SourceCN _ _, _) -> ["color" := "blue"]
+          (__, SourceCN _ _) -> ["color" := "black"]
+          (_, TargetCN _ _) -> ["color" := "blue"]
           (_, CENUp _ _) -> ["color" := "black"]
           (_, CENDown _ _) -> ["color" := "orange"]
           (_, DynCN _) -> ["color" := "black"]
