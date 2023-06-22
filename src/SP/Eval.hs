@@ -10,12 +10,10 @@ import Control.Algebra (Has, (:+:))
 import Control.Carrier.Fresh.Strict (Fresh, runFresh)
 import Control.Carrier.Lift (runM)
 import Control.Carrier.State.Strict (runState)
-import Control.Effect.Optics (modifying)
 import Control.Effect.State (State)
 import qualified Control.Effect.State as S
-import Control.Monad (forM, forM_)
+import Control.Monad (forM)
 import qualified Data.Map as Map
-import Data.Sequence (Seq (..))
 import GHC.Exts (toList)
 import Optics (Ixed (ix), (%), (^?))
 import SP.Gen
