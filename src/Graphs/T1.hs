@@ -1,17 +1,16 @@
-
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE OverloadedStrings         #-}
 
 module Graphs.T1 where
 
-import           Control.Monad        (when)
-import           Data.Vector.Storable (fromList)
-import           Foreign.C.Types      (CInt)
-import           SDL                  (($=))
+import Control.Monad (when)
+import Data.Vector.Storable (fromList)
+import Foreign.C.Types (CInt)
+import SDL (($=))
 import qualified SDL
 import qualified SDL.Framerate
 import qualified SDL.Primitive
-import           SDL.Vect             (V2 (..), V4 (..))
+import SDL.Vect (V2 (..), V4 (..))
 
 red :: SDL.Primitive.Color
 red = V4 255 50 50 255
@@ -38,7 +37,7 @@ main = do
   let fps :: Int
       fps = 60 -- How fast do we aim to render?
   let limit :: CInt
-      limit = 12000 -- How many frames will we render?
+      limit = 120 -- How many frames will we render?
   SDL.Framerate.with fps $ loopFor limit r
 
   SDL.destroyWindow w
