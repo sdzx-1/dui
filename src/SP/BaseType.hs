@@ -14,7 +14,7 @@ import GHC.Generics (Generic)
 import Optics (makeFieldLabels)
 
 newtype ChanIndex = ChanIndex Int
-  deriving (Show)
+  deriving (Show, Eq, Ord)
 
 chanIndexToInt :: ChanIndex -> Int
 chanIndexToInt (ChanIndex i) = i
@@ -23,10 +23,10 @@ intToChanIndex :: Int -> ChanIndex
 intToChanIndex = ChanIndex
 
 data Rect = Rect
-  { rectW :: Double,
-    rectH :: Double,
-    rectX :: Double,
-    rectY :: Double
+  { rectX :: Double,
+    rectY :: Double,
+    rectW :: Double,
+    rectH :: Double
   }
   deriving (Generic, Show)
 
@@ -36,25 +36,27 @@ data Point = Point
   }
   deriving (Generic, Show)
 
-data Event = Event Rect LocalEvent
+newtype Event = Event LocalEvent
   deriving (Show)
 
 data Picture = Picture Rect LoclPicture
   deriving (Show)
 
-newtype LocalEvent
-  = Click Point
+data LocalEvent
+  = LClick Point
+  | Drag Double Double
   deriving (Show)
 
 data LoclPicture
   = LRect Rect
   | LPictures [Picture]
+  | LString String
   deriving (Show)
 
 data ContainerState = ContainerState
-  { focus :: Maybe (ChanIndex, Picture),
-    picturesList :: Seq (ChanIndex, Picture),
-    containerRect :: Rect
+  { containerRect :: Rect,
+    focus :: Maybe (ChanIndex, Picture),
+    picturesList :: Seq (ChanIndex, Picture)
   }
   deriving (Generic, Show)
 

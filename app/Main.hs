@@ -1,9 +1,9 @@
 module Main where
 
 import Graphs.T as T
-import Graphs.T1 as T1
+import SP.Debug (lsp)
 
 main :: IO ()
 main = do
-  T1.main
+  T.main [] lsp
 

@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -15,15 +16,16 @@ module SP.Util where
 
 import Control.Algebra (Has, (:+:))
 import Control.Carrier.Lift (Lift)
-import Control.Carrier.State.Strict (State)
+import Control.Carrier.State.Strict (State, runState)
 import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Labelled (HasLabelledLift, LabelledLift, lift, runLabelledLift)
 import Control.Effect.Optics (assign, modifying, preuse, use)
-import Control.Monad (void)
+import Control.Effect.State (modify)
+import Control.Monad (forever, void, when)
 import Data.Dynamic (Typeable)
 import qualified Data.IntMap as IntMap
 import Data.Kind (Type)
-import Data.Sequence (Seq (..))
+import Data.Sequence (Seq (..), (><))
 import qualified Data.Sequence as Seq
 import GHC.Exts (IsList (toList))
 import Optics (At (at), Ixed (ix), (%))
@@ -113,6 +115,13 @@ takeOneSomeSP = do
   let (v, n) = takeOne runs
   assign @EvalState #runningList n
   pure v
+
+takeChanAll ::
+  (Has (State EvalState) sig m, MonadFail m) => ChanIndex -> m (Seq SomeVal)
+takeChanAll i = do
+  Just vs <- preuse @EvalState (#chans % ix (chanIndexToInt i) % #chan)
+  assign @EvalState (#chans % ix (chanIndexToInt i) % #chan) Seq.empty
+  pure vs
 
 addRTSP ::
   (Has (State EvalState :+: Fresh) sig m, MonadFail m) => RTSP -> m RTSPIndex
@@ -228,3 +237,113 @@ type BottomSP i o sig m = HasLabelledLift (SP i o) sig m
 
 runLToLSP :: (Typeable i, Typeable o) => LabelledLift Lift (SP i o) a -> LSP '[] i o
 runLToLSP = L . runLabelledLift . void
+
+runLToLSPE :: (Typeable i, Typeable o) => LabelledLift Lift (SP (Either i Event) (Either o Picture)) a -> LSP '[] i o
+runLToLSPE = E . runLabelledLift . void
+
+initContainerState :: Rect -> ContainerState
+initContainerState rect = ContainerState rect Nothing Seq.Empty
+
+defaultContainerSP ::
+  ( Has (State ContainerState) sig m,
+    BottomSP
+      (Either (ChanIndex, Picture) Event)
+      (Either (ChanIndex, Event) Picture)
+      sig
+      m
+  ) =>
+  m ()
+defaultContainerSP = forever $ do
+  getFromUpstream >>= \case
+    Right (Event le) -> case le of
+      drag@(Drag dx dy) -> do
+        mfocus <- use @ContainerState #focus
+        case mfocus of
+          Just (ci, _) -> do
+            putToDownstream $ Left (ci, Event drag)
+          Nothing -> do
+            modifying @_ @ContainerState (#containerRect % #rectX) (+ dx)
+            modifying @_ @ContainerState (#containerRect % #rectY) (+ dy)
+            containerPutPicture
+      LClick point@(Point x1 y1) -> do
+        rect@(Rect x0 y0 _ _) <- use @ContainerState #containerRect
+        when (pointInRect point rect) $ do
+          let localPoint = Point (x1 - x0) (y1 - y0)
+          mfocus <- use @ContainerState #focus
+          case mfocus of
+            Just (ci, Picture pRect _)
+              | pointInRect localPoint pRect ->
+                  putToDownstream $ Left (ci, Event $ LClick localPoint)
+            _ -> do
+              modify @ContainerState moveFoucsToPictureList
+              pclist <- use @ContainerState #picturesList
+              let go _ Empty = pure ()
+                  go tailSeq (ls :|> cp@(ci, Picture pRect _)) = do
+                    if pointInRect localPoint pRect
+                      then do
+                        assign @ContainerState #focus (Just cp)
+                        assign @ContainerState #picturesList (ls >< tailSeq)
+                        putToDownstream $ Left (ci, Event $ LClick localPoint)
+                      else do
+                        go (cp :<| tailSeq) ls
+              go Seq.Empty pclist
+    Left cp -> do
+      modify @ContainerState (repOrAdd cp)
+      containerPutPicture
+
+containerPutPicture ::
+  ( Has (State ContainerState) sig m,
+    BottomSP
+      (Either (ChanIndex, Picture) Event)
+      (Either (ChanIndex, Event) Picture)
+      sig
+      m
+  ) =>
+  m ()
+containerPutPicture = do
+  pls <- fmap snd <$> use @ContainerState #picturesList
+  cr <- use @ContainerState #containerRect
+  mf <- use @ContainerState #focus
+  putToDownstream $
+    Right $
+      Picture
+        cr
+        (LPictures $ toList $ pls >< maybe Seq.Empty (Seq.singleton . snd) mf)
+
+moveFoucsToPictureList :: ContainerState -> ContainerState
+moveFoucsToPictureList cs@(ContainerState _ f p) =
+  cs {focus = Nothing, picturesList = p >< maybe Seq.Empty Seq.singleton f}
+
+pointInRect :: Point -> Rect -> Bool
+pointInRect (Point x1 y1) (Rect x0 y0 w0 h0) =
+  x1 > x0 && x1 < (x0 + w0) && y1 > y0 && y1 < (y0 + h0)
+
+repOrAdd :: (ChanIndex, Picture) -> ContainerState -> ContainerState
+repOrAdd cp@(ci, pc) cs@(ContainerState _ f pl) = case f of
+  Just (ci', _) ->
+    if ci' == ci
+      then cs {focus = Just (ci, pc)}
+      else cs {picturesList = go cp pl}
+  Nothing -> cs {picturesList = go cp pl}
+  where
+    go :: (ChanIndex, Picture) -> Seq (ChanIndex, Picture) -> Seq (ChanIndex, Picture)
+    go cp Empty = cp :<| Empty
+    go cp@(ci, _) (cp'@(ci', _) :<| rs) =
+      if ci == ci'
+        then cp :<| rs
+        else cp' :<| go cp rs
+
+runContianerSP ::
+  Rect ->
+  SP
+    (Either (ChanIndex, Picture) Event)
+    (Either (ChanIndex, Event) Picture)
+    ()
+runContianerSP rect =
+  runLabelledLift $
+    void $
+      runState @ContainerState
+        (initContainerState rect)
+        defaultContainerSP
+
+containerWrapper rect = Container (runContianerSP rect)

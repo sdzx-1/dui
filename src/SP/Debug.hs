@@ -1,8 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -18,6 +20,9 @@ import Algebra.Graph.Export.Dot
 import Control.Algebra (Has, (:+:))
 import Control.Carrier.Fresh.Strict (Fresh, fresh, runFresh)
 import Control.Carrier.State.Strict (State, modify, runState)
+import Control.Effect.Optics (modifying)
+import qualified Control.Effect.State as S
+import Control.Monad (forever)
 import Data.Functor.Identity
 import qualified Data.Text as T
 import Data.Typeable (Typeable, typeOf)
@@ -281,39 +286,68 @@ debug = arrLSP (Val @s . show) :>>+ arrLSP id
 ge :: Int -> Either Int Int
 ge i = if odd i then Left i else Right i
 
-te :: SP (Either Int Event) (Either Int Picture) ()
-te = Get $ \case
-  Left v -> Put (Left v) te
-  Right _ -> Put (Right (Picture (Rect 1 1 1 1) (LRect (Rect 1 1 1 1)))) te
+example ::
+  ( Has (State Int) sig m,
+    Has (State Point) sig m,
+    BottomSP
+      (Either Int Event)
+      (Either Int Picture)
+      sig
+      m
+  ) =>
+  m ()
+example = do
+  (Point x y) <- S.get @Point
+  i <- S.get @Int
+  -- init picture
+  putToDownstream $ Right (Picture (Rect x y 30 30) (LString $ show i))
+  -- event loop
+  forever $ do
+    (Point x y) <- S.get @Point
+    i <- getFromUpstream
+    case i of
+      Left i -> do
+        S.put @Int i
+        putToDownstream $ Right (Picture (Rect x y 30 30) (LString $ show i))
+      -- putToDownstream $ Left i
+      Right (Event e) -> case e of
+        LClick _ -> do
+          S.modify @Int (+ 1)
+          newVal <- S.get @Int
+          putToDownstream $ Right (Picture (Rect x y 30 30) (LString $ show newVal))
+        Drag dx dy -> do
+          modifying @_ @Point #pointX (+ dx)
+          modifying @_ @Point #pointY (+ dy)
+          Point x0 y0 <- S.get @Point
+          val <- S.get @Int
+          putToDownstream $ Right (Picture (Rect x0 y0 30 30) (LString $ show val))
 
-te' = Put (Right (Picture (Rect 1 1 1 1) (LRect (Rect 1 1 1 1)))) te
+-- putToDownstream $ Left newVal
 
-consp ::
-  SP
-    (Either (ChanIndex, Picture) Event)
-    (Either (ChanIndex, Event) Picture)
-    ()
-consp = Get $ \case
-  Left (_, _) -> Put (Right (Picture (Rect 1 1 1 1) (LRect (Rect 1 1 1 1)))) consp
-  Right _ -> consp
+ex1 :: Point -> Int -> LSP '[] Int Int
+ex1 p n = runLToLSPE $ runState @Int n $ runState @Point p example
 
 -- >>> showLSP (lsp )
 lsp =
-  Container
-    consp
+  containerWrapper
+    (Rect 0 0 1000 1000)
     ( debug @"input"
         :>>> arrLSP (+ 1)
         :>>> debug @"+1"
-        :>>> E te'
+        :>>> ex1 (Point 30 50) 1
         :>>> arrLSPState 0 (\s a -> (s + a, s + a))
-        :>>> E te'
+        :>>> ex1 (Point 30 80) 2
         :>>> debug @"acc"
-        :>>> E te'
-        :>>> arrLSP ge
-        :>>> debug @"generate Either"
-        :>>> ((arrLSP (+ 1) :>>> debug @"el") ||| arrLSP (+ 2))
-        :>>> debug @"modify Either"
-        :>>> (arrLSP (* 2) &&& arrLSP id)
+        :>>> containerWrapper
+          (Rect 20 120 505 505)
+          ( ex1 (Point 30 10) 3
+              :>>> ex1 (Point 30 40) 4
+              :>>> arrLSP ge
+              :>>> debug @"generate Either"
+              :>>> ((arrLSP (+ 1) :>>> debug @"el") ||| arrLSP (+ 2))
+              :>>> debug @"modify Either"
+              :>>> (arrLSP (* 2) &&& arrLSP id)
+          )
     )
 
 -- >>> res
