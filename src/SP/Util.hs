@@ -27,6 +27,7 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import GHC.Exts (IsList (toList))
 import Optics (At (at), Ixed (ix), (%))
+import SP.BaseType
 import SP.SP
 import SP.Type
 import Unsafe.Coerce (unsafeCoerce)

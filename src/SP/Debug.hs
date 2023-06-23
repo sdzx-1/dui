@@ -22,10 +22,10 @@ import Data.Functor.Identity
 import qualified Data.Text as T
 import Data.Typeable (Typeable, typeOf)
 import GHC.TypeLits (KnownSymbol, Symbol)
+import SP.BaseType
 import SP.Eval (runLSPWithOutputs1)
 import SP.SP (SP (..))
 import SP.Type
-import SP.BaseType
 import SP.Util
 import Shelly
 import System.IO
@@ -284,9 +284,9 @@ ge i = if odd i then Left i else Right i
 te :: SP (Either Int Event) (Either Int Picture) ()
 te = Get $ \case
   Left v -> Put (Left v) te
-  Right Event -> Put (Right Picture) te
+  Right _ -> Put (Right (Picture (Rect 1 1 1 1) (LRect (Rect 1 1 1 1)))) te
 
-te' = Put (Right Picture) te
+te' = Put (Right (Picture (Rect 1 1 1 1) (LRect (Rect 1 1 1 1)))) te
 
 consp ::
   SP
@@ -294,7 +294,7 @@ consp ::
     (Either (ChanIndex, Event) Picture)
     ()
 consp = Get $ \case
-  Left (_, Picture) -> Put (Right Picture) consp
+  Left (_, _) -> Put (Right (Picture (Rect 1 1 1 1) (LRect (Rect 1 1 1 1)))) consp
   Right _ -> consp
 
 -- >>> showLSP (lsp )

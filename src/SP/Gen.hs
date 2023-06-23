@@ -17,6 +17,7 @@ import Control.Effect.Optics (assign, modifying, preuse)
 import Control.Monad (forM_, replicateM)
 import qualified Data.Sequence as Seq
 import Optics (At (at), Ixed (ix), (%))
+import SP.BaseType
 import SP.Type
 import SP.Util
 

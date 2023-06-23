@@ -31,15 +31,6 @@ import Optics (makeFieldLabels)
 import SP.BaseType
 import SP.SP
 
-newtype ChanIndex = ChanIndex Int
-  deriving (Show)
-
-chanIndexToInt :: ChanIndex -> Int
-chanIndexToInt (ChanIndex i) = i
-
-intToChanIndex :: Int -> ChanIndex
-intToChanIndex = ChanIndex
-
 newtype RTSPIndex = RTSPIndex Int deriving (Eq)
 
 rTSPIndexToInt :: RTSPIndex -> Int
